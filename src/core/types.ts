@@ -28,6 +28,8 @@ export interface PrinterConfig {
   enclosed?: boolean;
   /** Slicer profiles exported from Bambu Studio or OrcaSlicer, as file paths. */
   slicing?: { machine: string; process: string; filaments: string[] } | null;
+  /** For a simulated printer: what is loaded in its AMS. */
+  sim?: { ams: { color: string; material: string }[] } | null;
 }
 
 export interface FilamentSlot {
@@ -135,6 +137,8 @@ export interface Settings {
   inboxSource: { url: string; token: string; pollSec: number } | null;
   /** Path to bambu-studio or orca-slicer; null to look in the usual places. */
   slicerPath: string | null;
+  /** How fast simulated printers run: 1 is real time, 60 makes an hour take a minute. */
+  simSpeed: number;
 }
 
 export interface FarmData {

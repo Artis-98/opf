@@ -25,6 +25,17 @@ export interface SliceResult {
 
 export type Result<T> = { ok: true; value: T } | { ok: false; error: string };
 
+/** One change, from a commit message: a short title and a plain-words summary. */
+export interface Change {
+  subject: string;
+  body: string;
+}
+
+export interface UpdateInfo {
+  behind: number;
+  changes: Change[];
+}
+
 export interface OpfApi {
   snapshot(): Promise<Snapshot>;
   act(name: string, ...args: unknown[]): Promise<Result<unknown>>;
@@ -35,5 +46,12 @@ export interface OpfApi {
   pickProfile: (() => Promise<string | null>) | null;
   slice(req: SliceRequest): Promise<Result<SliceResult>>;
   loadDemo(): Promise<void>;
+  /** A newer OPF on GitHub, when this copy runs from its git folder. */
+  updateState(): Promise<UpdateInfo | null>;
+  onUpdateReady(cb: (u: UpdateInfo) => void): () => void;
+  /** What changed since OPF was last opened; empty after the first call. */
+  whatsNew(): Promise<Change[]>;
+  /** Close, update through the launcher, and open again. */
+  restart(): Promise<void>;
   isDemo: boolean;
 }

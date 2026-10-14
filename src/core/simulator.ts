@@ -30,7 +30,10 @@ export class SimulatedPrinter implements PrinterDriver {
   private s: LiveState;
   private total = 0;
 
-  constructor(_cfg: PrinterConfig, private emit: Emit, scenario: SimScenario = {}, private speed = 1) {
+  private speedOf: () => number;
+
+  constructor(_cfg: PrinterConfig, private emit: Emit, scenario: SimScenario = {}, speed: number | (() => number) = 1) {
+    this.speedOf = typeof speed === "number" ? () => speed : speed;
     const printing = scenario.status === "printing" || scenario.status === "paused" || scenario.status === "error";
     this.total = scenario.totalSec ?? 0;
     const remaining = scenario.remainingSec ?? null;
@@ -68,6 +71,10 @@ export class SimulatedPrinter implements PrinterDriver {
   disconnect() {
     if (this.timer) clearInterval(this.timer);
     this.timer = null;
+  }
+
+  private get speed() {
+    return Math.max(1, this.speedOf() || 1);
   }
 
   private tick() {
@@ -125,4 +132,10 @@ export class SimulatedPrinter implements PrinterDriver {
     this.s.bed.target = 0;
     this.emit({ ...this.s });
   }
+}
+
+/** The simulator for a printer added in OPF, with the AMS colours saved in its settings. */
+export function simulatorFor(cfg: PrinterConfig, emit: Emit, speed: number | (() => number), scenario?: SimScenario): SimulatedPrinter {
+  const ams = cfg.sim?.ams?.length ? amsOf(...cfg.sim.ams.map((a) => [a.color, a.material] as [string, string])) : undefined;
+  return new SimulatedPrinter(cfg, emit, scenario ?? { status: "idle", ams }, speed);
 }

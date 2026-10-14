@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from "electron";
-import type { OpfApi } from "./api";
+import type { OpfApi, UpdateInfo } from "./api";
 import type { Snapshot } from "../core/types";
 
 const api: OpfApi = {
@@ -14,6 +14,14 @@ const api: OpfApi = {
   pickProfile: () => ipcRenderer.invoke("opf:pickProfile"),
   slice: (req) => ipcRenderer.invoke("opf:slice", req),
   loadDemo: () => ipcRenderer.invoke("opf:loadDemo"),
+  updateState: () => ipcRenderer.invoke("opf:updateState"),
+  onUpdateReady: (cb) => {
+    const h = (_e: unknown, u: UpdateInfo) => cb(u);
+    ipcRenderer.on("opf:updateReady", h);
+    return () => ipcRenderer.removeListener("opf:updateReady", h);
+  },
+  whatsNew: () => ipcRenderer.invoke("opf:whatsNew"),
+  restart: () => ipcRenderer.invoke("opf:restart"),
   isDemo: false,
 };
 

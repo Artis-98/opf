@@ -16,6 +16,7 @@ export const DEFAULT_SETTINGS: Settings = {
   api: { enabled: true, port: 7878, token: "" },
   inboxSource: null,
   slicerPath: null,
+  simSpeed: 1,
 };
 
 export function emptyFarm(): FarmData {
@@ -48,7 +49,7 @@ export const ACTIONS = [
   "addShelf", "renameShelf", "removeShelf", "addSlot", "removeSlot", "placePrinter",
   "enqueue", "reorder", "dequeue", "transfer", "updateJob",
   "startNext", "pause", "resume", "stop", "clearBed",
-  "addInbox", "removeInbox", "updateSettings", "replaceData",
+  "addInbox", "removeInbox", "updateSettings", "replaceData", "addTestPrinters",
 ] as const;
 export type ActionName = (typeof ACTIONS)[number];
 
@@ -383,6 +384,33 @@ export class FarmService {
   updateSettings(patch: Partial<Settings>) {
     this.data.settings = { ...this.data.settings, ...patch };
     this.changed(true);
+  }
+
+  /**
+   * A simulated Bambu A1 and A1 mini on their own shelf, next to the real
+   * printers, each with AMS lite colours and two plates queued, for trying
+   * the queue without printing anything. Returns the new printer ids.
+   */
+  addTestPrinters(): string[] {
+    const shelfId = this.addShelf("Test shelf · simulated");
+    const plate = (name: string, minutes: number, grams: number, fil: [string, string][]): Omit<PlateJob, "id" | "createdAt"> => ({
+      name, ref: "TEST", minutes, grams,
+      filaments: fil.map(([color, material]) => ({ color, material, grams: Math.round(grams / fil.length) })),
+      file: null, thumbnail: null, source: "estimate",
+    });
+    const a1 = this.addPrinter({
+      name: "A1 TEST", model: "Bambu Lab A1", driver: "simulator", enclosed: false,
+      sim: { ams: [{ color: "#F1F1EE", material: "PLA" }, { color: "#202224", material: "PLA" }, { color: "#00AE42", material: "PLA" }, { color: "#F47B20", material: "PLA" }] },
+    }, { shelfId, slot: 0 });
+    const mini = this.addPrinter({
+      name: "A1 mini TEST", model: "Bambu Lab A1 mini", driver: "simulator", enclosed: false,
+      sim: { ams: [{ color: "#D63A2F", material: "PLA" }, { color: "#F1F1EE", material: "PLA" }, { color: "#8E9399", material: "PLA" }, { color: "#2F6FD6", material: "PLA" }] },
+    }, { shelfId, slot: 1 });
+    this.enqueue(a1, plate("Test cubes ×4", 25, 12, [["#F1F1EE", "PLA"]]));
+    this.enqueue(a1, plate("Two-colour tag", 40, 9, [["#202224", "PLA"], ["#F1F1EE", "PLA"]]));
+    this.enqueue(mini, plate("Calibration plate", 15, 6, [["#D63A2F", "PLA"]]));
+    this.enqueue(mini, plate("Cable clips ×10", 30, 11, [["#8E9399", "PLA"]]));
+    return [a1, mini];
   }
 
   /** Swap in a whole farm, e.g. loading the demo or importing a backup. */

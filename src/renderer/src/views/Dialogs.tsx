@@ -3,6 +3,7 @@ import { useFarm } from "../state";
 import { opf } from "../bridge";
 import type { DriverKind, PrinterConfig, Settings } from "../../../core/types";
 import { Icon } from "../components/icons";
+import type { Change } from "../../../preload/api";
 
 function Dialog({ title, onClose, children, footer }: { title: string; onClose: () => void; children: ReactNode; footer: ReactNode }) {
   useEffect(() => {
@@ -141,8 +142,8 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
     <Dialog title="Settings" onClose={onClose} footer={
       <>
         {confirmDemo
-          ? <><span className="muted">This replaces your farm.</span><button className="btn danger solid" onClick={async () => { await opf.loadDemo(); onClose(); }}>Load the demo farm</button></>
-          : <button className="btn ghost" onClick={() => setConfirmDemo(true)}>Load demo farm…</button>}
+          ? <><span className="muted">Your printers and queues are replaced.</span><button className="btn danger solid" onClick={async () => { await opf.loadDemo(); onClose(); }}>Replace with the demo</button></>
+          : <button className="btn ghost" onClick={() => setConfirmDemo(true)}>Replace my farm with the demo…</button>}
         <span className="sp" />
         <button className="btn" onClick={onClose}>Cancel</button>
         <button className="btn pri" onClick={save}>Save</button>
@@ -164,6 +165,22 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
       <label className="check"><input type="checkbox" checked={s.overnightOk} onChange={(e) => set("overnightOk", e.target.checked)} />Prints may keep running after everyone has left</label>
       <div className="fg2">
         <div className="fg"><label htmlFor="s-change">Bed change, minutes</label><input id="s-change" type="number" min={0} max={120} className="input" value={s.changeoverMin} onChange={(e) => set("changeoverMin", Math.max(0, +e.target.value || 0))} /></div>
+      </div>
+
+      <div className="section-title">Test printers</div>
+      <span className="help muted">Simulated printers sit next to your real ones and behave like them, without printing anything. Use them to try the queue, plates and new features.</span>
+      <div className="row">
+        <button className="btn" onClick={async () => { const ids = await act<string[]>("addTestPrinters"); if (ids) { toast("Added A1 TEST and A1 mini TEST on the Test shelf"); onClose(); } }}>{Icon.plus}Add an A1 and A1 mini test printer</button>
+      </div>
+      <div className="fg2">
+        <div className="fg">
+          <label htmlFor="s-simspeed">Test printers run at</label>
+          <select id="s-simspeed" className="input" value={s.simSpeed} onChange={(e) => set("simSpeed", +e.target.value)}>
+            <option value={1}>Real time</option>
+            <option value={10}>10× faster</option>
+            <option value={60}>60× faster (an hour takes a minute)</option>
+          </select>
+        </div>
       </div>
 
       <div className="section-title">Slicer</div>
@@ -194,6 +211,19 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
         </div>
         <span className="help">Other programs send parts to OPF with POST http://127.0.0.1:{s.api.port}/api/v1/inbox and this token. See the README.</span>
       </div>
+    </Dialog>
+  );
+}
+
+export function WhatsNewDialog({ changes, onClose }: { changes: Change[]; onClose: () => void }) {
+  return (
+    <Dialog title="What's new in OPF" onClose={onClose} footer={<button className="btn pri" onClick={onClose}>Got it</button>}>
+      <p className="muted" style={{ margin: 0 }}>Changes since you last opened OPF, newest first.</p>
+      <ul className="changes">
+        {changes.map((c, i) => (
+          <li key={i}><b>{c.subject}</b>{c.body && <span>{c.body}</span>}</li>
+        ))}
+      </ul>
     </Dialog>
   );
 }

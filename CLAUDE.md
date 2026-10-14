@@ -17,6 +17,24 @@ Run tests and typecheck before every commit.
 - The scheduler follows the same rules as iiteg-admin-hub's `src/lib/schedule.ts`; keep them in step.
 - UI text is plain and from the operator's side ("Clear the bed", not "Acknowledge job completion").
 
+## How the owner runs OPF, and what that means for every push
+
+The owner runs OPF on their Windows PC straight from `main`, through
+`OPF.bat` → `scripts/launch.cjs` (git pull, npm install when the lockfile
+changed, build, open). An open OPF checks GitHub every 3 minutes and offers
+"Update ready · Restart". So:
+
+- Everything pushed to `main` reaches their PC within minutes. Run
+  `npm run typecheck` and `npm test` before every push, and a quick run of
+  the app for UI changes.
+- The subject and first paragraph of each commit message are shown to them
+  in OPF's "What's new" dialog. Write them for the person using OPF, in plain
+  words about what changed for them, not about the code.
+- Their farm lives in `%APPDATA%\opf\farm.json` with real printers in it.
+  Changes to `FarmData` must keep reading older files (`normalise()` in
+  `src/core/farm.ts`).
+- They test on simulated A1 / A1 mini printers (Settings → Test printers).
+
 ## Running the real Electron app in a cloud session
 
 `ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm install` skips the binary; `node node_modules/electron/install.js` fetches it.

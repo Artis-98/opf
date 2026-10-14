@@ -70,6 +70,23 @@ Version 0.1, first build. Be clear about what has been checked where:
 The first job is to point it at a real Bambu printer and fix whatever the
 printer disagrees with.
 
+## Everyday use on Windows
+
+1. Once: in the `opf` folder, double-click **OPF.bat**. It puts an **OPF**
+   icon on your desktop and opens OPF.
+2. From then on, open OPF from the desktop icon. Each time, it fetches the
+   newest version from GitHub first (a few seconds), so new features arrive
+   without any commands.
+3. While OPF is open, an **Update ready · Restart** button appears in the top
+   bar when there is something new. After the restart, **What's new** lists
+   the changes.
+
+macOS and Linux: run `./OPF.sh` the same way.
+
+To try things without printing, open **Settings → Test printers** and add a
+simulated A1 and A1 mini. They sit on their own shelf, behave like real
+printers, and can run up to 60 times faster.
+
 ## Running it
 
 Needs Node.js 22 or newer.

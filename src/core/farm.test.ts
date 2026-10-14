@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { emptyFarm, FarmService } from "./farm";
-import { SimulatedPrinter } from "./simulator";
+import { SimulatedPrinter, simulatorFor } from "./simulator";
 import type { DriverFactory } from "./driver";
 import type { FarmData, PlateJob } from "./types";
 
@@ -10,7 +10,7 @@ const plate = (name: string, minutes = 1): Omit<PlateJob, "id" | "createdAt"> =>
 
 function setup(data: FarmData = emptyFarm()) {
   const saved: FarmData[] = [];
-  const factory: DriverFactory = (cfg, emit) => new SimulatedPrinter(cfg, emit, { status: "idle" }, 60);
+  const factory: DriverFactory = (cfg, emit) => simulatorFor(cfg, emit, 60);
   const farm = new FarmService(data, factory, { persist: (d) => saved.push(structuredClone(d)), slicer: () => ({ found: false, name: null, path: null }) });
   farm.start();
   return { farm, saved };
@@ -124,6 +124,26 @@ describe("FarmService", () => {
     expect(s.workStart).toBe(7);
     expect(s.workEnd).toBe(20);
     expect(s.api.port).toBe(7878);
+    farm.shutdown();
+  });
+
+  it("adds an A1 and an A1 mini test printer on their own shelf, ready to print", async () => {
+    vi.useFakeTimers();
+    const { farm } = setup();
+    const real = farm.addPrinter({ name: "Real P1S", model: "Bambu Lab P1S", driver: "simulator" });
+    const [a1, mini] = farm.addTestPrinters();
+    const snap = farm.snapshot();
+    const shelf = snap.data.shelves.find((s) => s.name.startsWith("Test shelf"))!;
+    expect(shelf.slots.slice(0, 2)).toEqual([a1, mini]);
+    expect(snap.data.printers.map((p) => p.id)).toContain(real);
+    expect(snap.data.printers.find((p) => p.id === mini)!.model).toBe("Bambu Lab A1 mini");
+    expect(snap.data.queues[a1]).toHaveLength(2);
+    expect(snap.data.queues[mini]).toHaveLength(2);
+    // Their AMS colours come from their settings, so queued plates find their filament.
+    vi.advanceTimersByTime(1000);
+    expect(farm.snapshot().live[mini].ams[0].slots[0].color).toBe("#D63A2F");
+    await farm.startNext(mini);
+    expect(farm.snapshot().data.current[mini]?.name).toBe("Calibration plate");
     farm.shutdown();
   });
 });

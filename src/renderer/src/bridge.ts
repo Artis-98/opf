@@ -37,6 +37,10 @@ function browserDemo(): OpfApi {
       ({ data, scenarios } = demoFarm());
       farm.replaceData(data);
     },
+    updateState: async () => null,
+    onUpdateReady: () => () => {},
+    whatsNew: async () => [],
+    restart: async () => {},
     isDemo: true,
   };
 }

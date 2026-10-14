@@ -4,7 +4,8 @@ import { opf } from "./bridge";
 import { displayStatus, FarmView } from "./views/Farm";
 import { TimelineView } from "./views/Timeline";
 import { emptyPrep, newPlate, PrepareView, type PrepState } from "./views/Prepare";
-import { PrinterDialog, SettingsDialog } from "./views/Dialogs";
+import { PrinterDialog, SettingsDialog, WhatsNewDialog } from "./views/Dialogs";
+import type { Change, UpdateInfo } from "../../preload/api";
 import { Icon } from "./components/icons";
 import { arrange, loadModel, placeholder, plateSize, type PlateObject } from "./models";
 import { matchFilaments } from "../../core/filament";
@@ -42,6 +43,14 @@ function Shell() {
   const [printerDialog, setPrinterDialog] = useState<{ id: string | null; place?: { shelfId: string; slot: number } } | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [theme, setTheme] = useState(readTheme);
+  const [update, setUpdate] = useState<UpdateInfo | null>(null);
+  const [whatsNew, setWhatsNew] = useState<Change[]>([]);
+
+  useEffect(() => {
+    void opf.updateState().then(setUpdate);
+    void opf.whatsNew().then(setWhatsNew);
+    return opf.onUpdateReady(setUpdate);
+  }, []);
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -103,6 +112,12 @@ function Shell() {
         <button className={`mode ${view === "timeline" ? "on" : ""}`} onClick={() => setView("timeline")}>{Icon.timeline}Timeline</button>
         <button className={`mode ${view === "prepare" ? "on" : ""}`} onClick={() => setView("prepare")}>{Icon.prepare}Prepare</button>
         <div className="summary">
+          {update && (
+            <button className="chip update" title={update.changes.map((c) => `• ${c.subject}`).join("\n")}
+              onClick={() => { toast("Updating. OPF opens again in a moment."); void opf.restart(); }}>
+              Update ready · Restart
+            </button>
+          )}
           {opf.isDemo && <span className="chip demo">Demo · simulated printers</span>}
           <span className="chip"><b>{count("printing") + count("preparing")}</b>printing</span>
           <span className="chip hide-md"><b>{count("idle")}</b>idle</span>
@@ -125,6 +140,7 @@ function Shell() {
       </div>
       {printerDialog && <PrinterDialog id={printerDialog.id} place={printerDialog.place} onClose={() => setPrinterDialog(null)} onSaved={(id) => setSel(id)} />}
       {settingsOpen && <SettingsDialog onClose={() => setSettingsOpen(false)} />}
+      {whatsNew.length > 0 && <WhatsNewDialog changes={whatsNew} onClose={() => setWhatsNew([])} />}
     </div>
   );
 }
