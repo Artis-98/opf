@@ -47,7 +47,7 @@ export interface FarmOptions {
 export const ACTIONS = [
   "addPrinter", "updatePrinter", "removePrinter",
   "addShelf", "renameShelf", "removeShelf", "addSlot", "removeSlot", "placePrinter",
-  "enqueue", "reorder", "dequeue", "transfer", "updateJob",
+  "enqueue", "reorder", "dequeue", "transfer", "updateJob", "replaceQueued",
   "startNext", "pause", "resume", "stop", "clearBed",
   "addInbox", "removeInbox", "updateSettings", "replaceData", "addTestPrinters",
 ] as const;
@@ -281,6 +281,45 @@ export class FarmService {
     if (position === "next") to.unshift(j);
     else to.push(j);
     this.changed(true);
+  }
+
+  /** Where a queued plate is: its printer, and its place in that printer's queue. */
+  findQueued(jobId: string): { printerId: string; index: number } | null {
+    for (const [printerId, q] of Object.entries(this.data.queues)) {
+      const index = q.findIndex((j) => j.id === jobId);
+      if (index >= 0) return { printerId, index };
+    }
+    return null;
+  }
+
+  /** A plate anywhere in the farm: queued, on a printer, or printed earlier. */
+  findJob(jobId: string): PlateJob | null {
+    const at = this.findQueued(jobId);
+    if (at) return this.data.queues[at.printerId][at.index];
+    for (const j of Object.values(this.data.current)) if (j?.id === jobId) return j;
+    return this.data.history.find((h) => h.job.id === jobId)?.job ?? null;
+  }
+
+  /**
+   * A queued plate that was opened in the slicer, changed and sent again: the new plate takes its
+   * place and keeps its id and order number. With toPrinterId it moves to the end of that printer's
+   * queue. Returns the plate it replaced, or null when that plate is no longer queued.
+   */
+  replaceQueued(jobId: string, job: Omit<PlateJob, "id" | "createdAt">, toPrinterId?: string): PlateJob | null {
+    const at = this.findQueued(jobId);
+    if (!at) return null;
+    const q = this.queue(at.printerId);
+    const old = q[at.index];
+    const updated: PlateJob = { ...job, id: old.id, ref: job.ref ?? old.ref, createdAt: old.createdAt };
+    if (toPrinterId && toPrinterId !== at.printerId) {
+      const to = this.queue(toPrinterId);
+      q.splice(at.index, 1);
+      to.push(updated);
+    } else {
+      q[at.index] = updated;
+    }
+    this.changed(true);
+    return old;
   }
 
   updateJob(printerId: string, jobId: string, patch: Partial<Omit<PlateJob, "id">>) {

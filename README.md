@@ -149,6 +149,20 @@ OPF slices with your own slicer and your own settings. For each printer:
 OPF finds Bambu Studio or OrcaSlicer in their usual install folders, or set the
 path in Settings.
 
+## OPF Slicer
+
+[OPF Slicer](https://github.com/Artis-98/opf-slicer) is OrcaSlicer with four tabs:
+**Farm**, **Timeline**, **Prepare** and **Preview**. Farm and Timeline are this
+farm; Prepare and Preview are OrcaSlicer's own.
+
+- Click a printer in the Farm tab, slice in Prepare, and **Send to** that printer
+  from Preview. The plate goes into its queue together with its project.
+- **Edit** on a plate in a queue opens its project in Prepare. Sending it again
+  replaces the plate in its place in the queue.
+- OPF Slicer starts OPF without a window when it is not running (a tray icon
+  shows it is there). OPF writes where its launcher is to `launcher.json` in its
+  settings folder for that.
+
 ## Sending plates from OrcaSlicer
 
 OPF answers like an OctoPrint printer, so OrcaSlicer (and Bambu Studio with a

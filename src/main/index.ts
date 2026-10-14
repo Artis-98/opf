@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, shell } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, Menu, shell, Tray } from "electron";
 import { readFile } from "node:fs/promises";
 import { basename, join } from "node:path";
 import type { FarmService } from "../core/farm";
@@ -9,11 +9,16 @@ import type { Result, SliceRequest } from "../preload/api";
 import { makeDriverFactory } from "./drivers";
 import { slicePlate } from "./slicer";
 import { startHost, type Host } from "./host";
+import type { UpdateHooks } from "./api";
 import { changesSinceLastRun, checkForUpdate, isCheckout, restartThroughLauncher, type Change, type UpdateState } from "./updater";
 import icon from "../../resources/icon.png?asset";
 
 let win: BrowserWindow | null = null;
+let tray: Tray | null = null;
 let farm: FarmService;
+// Started by OPF Slicer (launch.cjs --background): no window, just the farm, its web page and a tray
+// icon. Closing a window opened from there leaves the farm running for the slicer.
+const background = process.argv.includes("--background");
 let host: Host;
 let demoScenarios: Record<string, SimScenario> = {};
 
@@ -22,6 +27,13 @@ const factory: DriverFactory = makeDriverFactory(() => farm?.settings.simSpeed ?
 
 const ok = <T>(value: T): Result<T> => ({ ok: true, value });
 const fail = (e: unknown): Result<never> => ({ ok: false, error: (e as Error)?.message ?? String(e) });
+
+function showWindow() {
+  if (!win) return createWindow();
+  if (win.isMinimized()) win.restore();
+  win.show();
+  win.focus();
+}
 
 function createWindow() {
   win = new BrowserWindow({
@@ -41,34 +53,55 @@ function createWindow() {
   });
   if (process.env.ELECTRON_RENDERER_URL) void win.loadURL(process.env.ELECTRON_RENDERER_URL);
   else void win.loadFile(join(__dirname, "../renderer/index.html"));
+  win.on("closed", () => (win = null));
 }
 
-// One OPF at a time: a second start (say, the desktop icon while OPF is open) brings the open window forward.
+/** In the background, a tray icon says OPF is running and opens or quits it. */
+function createTray() {
+  tray = new Tray(icon);
+  tray.setToolTip("OPF is running for OPF Slicer");
+  tray.setContextMenu(Menu.buildFromTemplate([
+    { label: "Open OPF", click: showWindow },
+    { type: "separator" },
+    { label: "Quit OPF", click: () => app.quit() },
+  ]));
+  tray.on("click", showWindow);
+}
+
+// One OPF at a time. A second start (say, the desktop icon while OPF is open) brings the window
+// forward; OPF Slicer starting it again (--background) changes nothing.
 if (!app.requestSingleInstanceLock()) app.quit();
-app.on("second-instance", () => {
-  if (!win) return;
-  if (win.isMinimized()) win.restore();
-  win.focus();
+app.on("second-instance", (_e, argv) => {
+  if (app.isReady() && !argv.includes("--background")) showWindow();
 });
 
-/** Updates for a copy running from its git folder (started by OPF.bat). Installed copies skip this. */
-function watchForUpdates() {
+/**
+ * Updates for a copy running from its git folder (started by OPF.bat). Installed copies skip this.
+ * The window asks over IPC; the web page (in OPF Slicer, or a browser) over the local web server.
+ */
+function watchForUpdates(): UpdateHooks {
   const root = app.getAppPath();
   let state: UpdateState | null = null;
   let whatsNew: Change[] = [];
   const enabled = !app.isPackaged && isCheckout(root);
-  ipcMain.handle("opf:updateState", () => state);
-  ipcMain.handle("opf:whatsNew", () => {
-    const w = whatsNew;
-    whatsNew = [];
-    return w;
-  });
-  ipcMain.handle("opf:restart", () => {
-    if (!enabled) return;
-    restartThroughLauncher(root);
-    app.quit();
-  });
-  if (!enabled) return;
+  const hooks: UpdateHooks = {
+    state: () => state,
+    whatsNew: () => {
+      const w = whatsNew;
+      whatsNew = [];
+      return w;
+    },
+    restart: () => {
+      if (!enabled) return;
+      // Stays in the background when that is where it runs: no window has been opened.
+      restartThroughLauncher(root, background && !win);
+      app.quit();
+    },
+  };
+  ipcMain.handle("opf:updateState", hooks.state);
+  ipcMain.handle("opf:whatsNew", hooks.whatsNew);
+  ipcMain.handle("opf:restart", hooks.restart);
+  if (!enabled) return hooks;
   changesSinceLastRun(root, join(app.getPath("userData"), "version.json")).then((c) => (whatsNew = c), () => {});
   const check = () =>
     checkForUpdate(root).then(
@@ -80,11 +113,12 @@ function watchForUpdates() {
     );
   setTimeout(check, 15_000);
   setInterval(check, 3 * 60_000);
+  return hooks;
 }
 
 app.whenReady().then(() => {
-  watchForUpdates();
-  host = startHost({ dataDir: app.getPath("userData"), factory, uiRoot: join(__dirname, "../renderer") });
+  const updates = watchForUpdates();
+  host = startHost({ dataDir: app.getPath("userData"), factory, uiRoot: join(__dirname, "../renderer"), updates });
   farm = host.farm;
   farm.subscribe((s) => win?.webContents.send("opf:update", s));
 
@@ -134,12 +168,12 @@ app.whenReady().then(() => {
 
   app.on("before-quit", () => host.shutdown());
 
-  createWindow();
-  app.on("activate", () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
-  });
+  if (background) createTray();
+  else createWindow();
+  app.on("activate", showWindow);
 });
 
 app.on("window-all-closed", () => {
-  if (process.platform !== "darwin") app.quit();
+  // In the background the farm keeps running for OPF Slicer; the tray icon quits it.
+  if (process.platform !== "darwin" && !background) app.quit();
 });

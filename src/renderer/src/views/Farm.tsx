@@ -37,6 +37,10 @@ export interface FarmProps {
   onPrepareInbox: (item: InboxItem) => void;
   onAddPrinter: (place?: { shelfId: string; slot: number }) => void;
   onEditPrinter: (id: string) => void;
+  /** In OPF Slicer: open a queued plate's project in its Prepare tab. */
+  onEditPlate?: (job: PlateJob) => void;
+  /** A plate to point out for a moment (just sent from OPF Slicer). */
+  flash?: string | null;
 }
 
 export function FarmView(props: FarmProps) {
@@ -53,7 +57,7 @@ export function FarmView(props: FarmProps) {
       <Floor {...props} filter={filter} editing={editing} setEditing={setEditing} now={now} />
       <aside className="insp">
         {props.sel && snap.data.printers.some((p) => p.id === props.sel)
-          ? <Inspector key={props.sel} id={props.sel} now={now} onAddPlate={props.onAddPlate} onEdit={props.onEditPrinter} />
+          ? <Inspector key={props.sel} id={props.sel} now={now} onAddPlate={props.onAddPlate} onEdit={props.onEditPrinter} onEditPlate={props.onEditPlate} flash={props.flash} />
           : <NothingSelected setSel={props.setSel} now={now} />}
       </aside>
     </div>
@@ -295,7 +299,9 @@ function NothingSelected({ setSel }: { setSel: (id: string) => void; now: Date }
   );
 }
 
-function Inspector({ id, now, onAddPlate, onEdit }: { id: string; now: Date; onAddPlate: (id: string) => void; onEdit: (id: string) => void }) {
+function Inspector({ id, now, onAddPlate, onEdit, onEditPlate, flash }: {
+  id: string; now: Date; onAddPlate: (id: string) => void; onEdit: (id: string) => void; onEditPlate?: (job: PlateJob) => void; flash?: string | null;
+}) {
   const { snap, act, toast } = useFarm();
   const [confirmStop, setConfirmStop] = useState(false);
   const [dragQ, setDragQ] = useState<number | null>(null);
@@ -419,7 +425,7 @@ function Inspector({ id, now, onAddPlate, onEdit }: { id: string; now: Date; onA
             const slot = qslots.find((s) => s.job.id === job.id);
             const missing = matchFilaments(job, live).filter((m) => !m.slot);
             return (
-              <div key={job.id} className={`qi ${dragQ === i ? "drag" : ""} ${overQ === i ? "over" : ""}`} draggable
+              <div key={job.id} className={`qi ${dragQ === i ? "drag" : ""} ${overQ === i ? "over" : ""} ${flash === job.id ? "flash" : ""}`} draggable
                 onDragStart={(e) => { e.dataTransfer.effectAllowed = "move"; setDragQ(i); }}
                 onDragOver={(e) => { if (dragQ !== null) { e.preventDefault(); setOverQ(i); } }}
                 onDragLeave={() => setOverQ(null)}
@@ -439,6 +445,7 @@ function Inspector({ id, now, onAddPlate, onEdit }: { id: string; now: Date; onA
                 </div>
                 <div style={{ display: "grid", gap: 4, justifyItems: "end" }}>
                   <div className="qi-acts">
+                    {onEditPlate && job.project && <button className="btn sm" title="Open this plate in Prepare to change it" onClick={() => onEditPlate(job)}>{Icon.edit}Edit</button>}
                     <button className="icon-btn" title="Move up" aria-label="Move up" disabled={i === 0} onClick={() => act("reorder", id, i, i - 1)}>{Icon.up}</button>
                     <button className="icon-btn" title="Move down" aria-label="Move down" disabled={i === queue.length - 1} onClick={() => act("reorder", id, i, i + 1)}>{Icon.down}</button>
                     <button className="icon-btn" title="Remove from queue" aria-label="Remove from queue" onClick={async () => { await act("dequeue", id, i); toast(`${job.name} removed from ${p.name}`); }}>{Icon.x}</button>

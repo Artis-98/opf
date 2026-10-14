@@ -13,7 +13,7 @@ import type { SlicerInfo } from "../core/types";
 import type { Result } from "../preload/api";
 import { findSlicer } from "./slicer";
 import { loadFarm, makeSaver } from "./store";
-import { startApi, stopApi } from "./api";
+import { startApi, stopApi, type UpdateHooks } from "./api";
 import { reportStatus, startInboxSource, stopInboxSource } from "./inbox-source";
 
 export interface Host {
@@ -24,7 +24,7 @@ export interface Host {
   shutdown(): void;
 }
 
-export function startHost(opts: { dataDir: string; factory: DriverFactory; uiRoot: string | null; host?: string }): Host {
+export function startHost(opts: { dataDir: string; factory: DriverFactory; uiRoot: string | null; host?: string; updates?: UpdateHooks }): Host {
   const file = join(opts.dataDir, "farm.json");
   const saver = makeSaver(file);
   let slicer = findSlicer(null);
@@ -36,7 +36,7 @@ export function startHost(opts: { dataDir: string; factory: DriverFactory; uiRoo
   let api: Server | null = null;
   const serve = () => {
     stopApi(api);
-    api = startApi(farm, { host: opts.host, uiRoot, uploads: join(opts.dataDir, "uploads"), act: runAction });
+    api = startApi(farm, { host: opts.host, uiRoot, uploads: join(opts.dataDir, "uploads"), act: runAction, updates: opts.updates });
   };
 
   async function runAction(name: string, args: unknown[]): Promise<Result<unknown>> {

@@ -151,6 +151,66 @@ describe("local API", () => {
     expect((await upload(`${base}/octo/nope`, sliced(60, 1), "x.gcode.3mf")).status).toBe(404);
   });
 
+  /* ---- OPF Slicer: Send to farm, and Edit on a queued plate ---- */
+
+  function sendPlate(base: string, fields: Record<string, string>, project: Uint8Array | null = strToU8("project")) {
+    const form = new FormData();
+    for (const [k, v] of Object.entries(fields)) form.append(k, v);
+    form.append("file", new Blob([new Uint8Array(sliced(1800, 12))]), "Clip.gcode.3mf");
+    if (project) form.append("project", new Blob([new Uint8Array(project)]), "Clip.3mf");
+    return fetch(`${base}/api/v1/ui/plates`, { method: "POST", body: form });
+  }
+  type Sent = { ok: boolean; error?: string; value: { job: { id: string; name: string }; printer: { id: string; name: string }; replaced: boolean } };
+
+  it("puts a plate from OPF Slicer in the chosen printer's queue, and gives its project back", async () => {
+    const base = (await setup()).replace("/api/v1", "");
+    farm.addPrinter({ name: "A1", model: "m", driver: "simulator" });
+    const mini = farm.addPrinter({ name: "A1 mini", model: "m", driver: "simulator" });
+    const r = (await (await sendPlate(base, { name: "Clip ×6", plate: "1", printer: mini }, strToU8("the project"))).json()) as Sent;
+    expect(r).toMatchObject({ ok: true, value: { job: { name: "Clip ×6" }, printer: { id: mini, name: "A1 mini" }, replaced: false } });
+    const q = farm.view().data.queues[mini];
+    expect(q).toHaveLength(1);
+    expect(q[0]).toMatchObject({ id: r.value.job.id, name: "Clip ×6", minutes: 30, grams: 12, plate: 1, source: "slicer" });
+    const got = await fetch(`${base}/api/v1/ui/plates/${r.value.job.id}/project`);
+    expect(got.status).toBe(200);
+    expect(await got.text()).toBe("the project");
+  });
+
+  it("replaces a plate that was edited, in its place in the queue, and removes the old files", async () => {
+    const base = (await setup()).replace("/api/v1", "");
+    const a = farm.addPrinter({ name: "A1", model: "m", driver: "simulator" });
+    farm.enqueue(a, { name: "first", ref: null, minutes: 5, grams: 1, filaments: [], file: null, thumbnail: null, source: "estimate" });
+    const sent = (await (await sendPlate(base, { name: "Clip", printer: a })).json()) as Sent;
+    farm.enqueue(a, { name: "last", ref: "IITEG-7", minutes: 5, grams: 1, filaments: [], file: null, thumbnail: null, source: "estimate" });
+    const before = farm.view().data.queues[a][1];
+    const again = (await (await sendPlate(base, { name: "Clip v2", replace: sent.value.job.id, printer: a }, strToU8("v2"))).json()) as Sent;
+    expect(again.value).toMatchObject({ job: { id: sent.value.job.id, name: "Clip v2" }, replaced: true });
+    const q = farm.view().data.queues[a];
+    expect(q.map((j) => j.name)).toEqual(["first", "Clip v2", "last"]);
+    expect(q[1].id).toBe(before.id);
+    expect(readdirSync(uploads).filter((f) => f.includes(before.file!.split(/[\\/]/).pop()!))).toEqual([]);
+    expect(await (await fetch(`${base}/api/v1/ui/plates/${before.id}/project`)).text()).toBe("v2");
+  });
+
+  it("adds an edited plate as a new one when the old one is no longer queued", async () => {
+    const base = (await setup()).replace("/api/v1", "");
+    const a = farm.addPrinter({ name: "A1", model: "m", driver: "simulator" });
+    const r = (await (await sendPlate(base, { name: "Clip", replace: "j-gone", printer: a })).json()) as Sent;
+    expect(r.value.replaced).toBe(false);
+    expect(r.value.job.id).not.toBe("j-gone");
+    expect(farm.view().data.queues[a]).toHaveLength(1);
+  });
+
+  it("says when a plate has no project to open", async () => {
+    const base = (await setup()).replace("/api/v1", "");
+    const a = farm.addPrinter({ name: "A1", model: "m", driver: "simulator" });
+    const r = (await (await sendPlate(base, { name: "Clip", printer: a }, null)).json()) as Sent;
+    const got = await fetch(`${base}/api/v1/ui/plates/${r.value.job.id}/project`);
+    expect(got.status).toBe(404);
+    expect(((await got.json()) as { error: string }).error).toMatch(/without its project/);
+    expect((await fetch(`${base}/api/v1/ui/plates/nope/project`)).status).toBe(404);
+  });
+
   it("serves the farm page and its live data to this computer", async () => {
     const base = (await setup()).replace("/api/v1", "");
     const a = farm.addPrinter({ name: "A1", model: "m", driver: "simulator" });

@@ -93,6 +93,8 @@ export interface PlateJob {
   file: string | null;
   /** Which plate in a .gcode.3mf project to print, 1-based. Default 1. */
   plate?: number;
+  /** The project the plate was sliced from (.3mf), sent along by OPF Slicer so the plate can be opened and changed. */
+  project?: string;
   /** Top view of the plate as a data: URL. */
   thumbnail: string | null;
   /** Where the time and grams came from. An estimate is replaced when the plate is sliced. */

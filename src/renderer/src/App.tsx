@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { FarmProvider, useFarm, useFarmMaybe } from "./state";
-import { opf, printerFromAddress } from "./bridge";
+import { embedded, opf, printerFromAddress, slicerTheme, toSlicer } from "./bridge";
 import { displayStatus, FarmView } from "./views/Farm";
 import { TimelineView } from "./views/Timeline";
 import { emptyPrep, newPlate, PrepareView, type PrepState } from "./views/Prepare";
@@ -9,11 +9,19 @@ import type { Change, UpdateInfo } from "../../preload/api";
 import { Icon } from "./components/icons";
 import { arrange, loadModel, placeholder, plateSize, type PlateObject } from "./models";
 import { matchFilaments } from "../../core/filament";
-import type { InboxItem } from "../../core/types";
+import type { InboxItem, PlateJob, PrinterConfig } from "../../core/types";
 
 type View = "farm" | "timeline" | "prepare";
 
+/** OrcaSlicer's printer profile for a printer, so a new plate in OPF Slicer starts on the right printer. */
+function machineProfile(p: PrinterConfig): string | null {
+  const m = p.slicing?.machine;
+  if (m) return m.split(/[\\/]/).pop()!.replace(/\.json$/i, "");
+  return p.model.startsWith("Bambu Lab ") ? `${p.model} 0.4 nozzle` : null;
+}
+
 function readTheme(): string {
+  if (slicerTheme) return slicerTheme;
   try {
     return localStorage.getItem("opf-theme") ?? "dark";
   } catch {
@@ -37,8 +45,11 @@ function Loaded() {
 
 function Shell() {
   const { snap, toast } = useFarm();
-  const [view, setView] = useState<View>("farm");
+  const [view, setView] = useState<View>(embedded ?? "farm");
   const [sel, setSel] = useState<string | null>(printerFromAddress);
+  // A plate OPF Slicer just sent, to show in its printer's queue once it is there.
+  const [shown, setShown] = useState<string | null>(null);
+  const [flash, setFlash] = useState<string | null>(null);
   const [prep, setPrepState] = useState<PrepState>(() => emptyPrep(null));
   const [printerDialog, setPrinterDialog] = useState<{ id: string | null; place?: { shelfId: string; slot: number } } | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -54,8 +65,37 @@ function Shell() {
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
+    if (slicerTheme) return; // the slicer's look, not a choice to remember
     try { localStorage.setItem("opf-theme", theme); } catch { /* not saved, still works */ }
   }, [theme]);
+
+  // In OPF Slicer's Farm tab: Send to farm goes to the printer picked here.
+  const selName = snap.data.printers.find((p) => p.id === sel)?.name ?? null;
+  useEffect(() => {
+    // The Timeline tab only says so when a printer is picked there; it starts with none.
+    if (embedded === "farm" || (embedded === "timeline" && selName)) toSlicer({ command: "opf_target", printer: selName ? sel : null, name: selName });
+  }, [sel, selName]);
+
+  useEffect(() => {
+    window.opfShowJob = (id) => setShown(id);
+    return () => { window.opfShowJob = undefined; };
+  }, []);
+  useEffect(() => {
+    if (!shown) return;
+    const printerId = Object.keys(snap.data.queues).find((id) => snap.data.queues[id].some((j) => j.id === shown));
+    if (!printerId) return; // not in the snapshot yet
+    const job = snap.data.queues[printerId].find((j) => j.id === shown)!;
+    setSel(printerId);
+    setShown(null);
+    setFlash(job.id);
+    const printer = snap.data.printers.find((p) => p.id === printerId)?.name;
+    toast(printer ? `${job.name} is in ${printer}'s queue` : `${job.name} is queued`);
+    const t = setTimeout(() => setFlash(null), 2600);
+    return () => clearTimeout(t);
+  }, [shown, snap, toast]);
+
+  /** Open a queued plate's project in OPF Slicer's Prepare tab. */
+  const editPlate = embedded ? (job: PlateJob) => toSlicer({ command: "opf_edit_plate", job: job.id, name: job.name, plate: job.plate ?? 1 }) : undefined;
 
   const setPrep = useCallback((fn: (p: PrepState) => PrepState) => setPrepState(fn), []);
 
@@ -65,6 +105,11 @@ function Shell() {
   const attention = sts.filter((s) => s === "error" || s === "finished" || s === "paused").length;
 
   const addPlate = (printerId: string) => {
+    const printer = snap.data.printers.find((p) => p.id === printerId);
+    if (embedded && printer) {
+      toSlicer({ command: "opf_new_plate", printer: printerId, name: printer.name, machine: machineProfile(printer) });
+      return;
+    }
     setPrepState((p) => {
       const sameTarget = p.target === printerId;
       const hasWork = p.plates.some((pl) => pl.objects.length);
@@ -80,6 +125,13 @@ function Shell() {
     const hasIt = (id: string) => want.filaments.length > 0 && matchFilaments(want, live[id]).every((m) => m.slot);
     const selected = sel ? candidates.find((p) => p.id === sel) : undefined;
     const best = (selected && hasIt(selected.id) ? selected : undefined) ?? candidates.find((p) => hasIt(p.id)) ?? selected ?? candidates[0] ?? snap.data.printers[0];
+    if (embedded && best) {
+      // OPF Slicer's Prepare tab does the plate: a new one for this printer.
+      setSel(best.id);
+      toSlicer({ command: "opf_new_plate", printer: best.id, name: best.name, machine: machineProfile(best) });
+      toast(`Add ${item.name}${item.qty > 1 ? ` ×${item.qty}` : ""} to the plate in Prepare, then Send to ${best.name}.`);
+      return;
+    }
     const color = item.color ?? "#F1F1EE";
     const material = item.material?.split(" ")[0] ?? "PLA";
     let objs: PlateObject[] = [];
@@ -105,12 +157,16 @@ function Shell() {
   };
 
   return (
-    <div className="app">
-      <header className="topbar">
-        <div className="brand">{Icon.logo}OPF</div>
-        <button className={`mode ${view === "farm" ? "on" : ""}`} onClick={() => setView("farm")}>{Icon.farm}Farm</button>
-        <button className={`mode ${view === "timeline" ? "on" : ""}`} onClick={() => setView("timeline")}>{Icon.timeline}Timeline</button>
-        <button className={`mode ${view === "prepare" ? "on" : ""}`} onClick={() => setView("prepare")}>{Icon.prepare}Prepare</button>
+    <div className={`app ${embedded ? "embedded" : ""}`}>
+      <header className={`topbar ${embedded ? "embedded" : ""}`}>
+        {!embedded && (
+          <>
+            <div className="brand">{Icon.logo}OPF</div>
+            <button className={`mode ${view === "farm" ? "on" : ""}`} onClick={() => setView("farm")}>{Icon.farm}Farm</button>
+            <button className={`mode ${view === "timeline" ? "on" : ""}`} onClick={() => setView("timeline")}>{Icon.timeline}Timeline</button>
+            <button className={`mode ${view === "prepare" ? "on" : ""}`} onClick={() => setView("prepare")}>{Icon.prepare}Prepare</button>
+          </>
+        )}
         <div className="summary">
           {update && (
             <button className="chip update" title={update.changes.map((c) => `• ${c.subject}`).join("\n")}
@@ -123,16 +179,16 @@ function Shell() {
           <span className="chip hide-md"><b>{count("idle")}</b>idle</span>
           {attention > 0 && <span className="chip err"><b>{attention}</b>need you</span>}
           <span className="chip hide-md"><b>{count("offline")}</b>offline</span>
-          <button className="icon-btn" title="Light or dark" aria-label="Switch light or dark" onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>{Icon.theme}</button>
+          {!embedded && <button className="icon-btn" title="Light or dark" aria-label="Switch light or dark" onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>{Icon.theme}</button>}
           <button className="icon-btn" title="Settings" aria-label="Settings" onClick={() => setSettingsOpen(true)}>{Icon.settings}</button>
         </div>
       </header>
       <div style={{ minHeight: 0 }}>
         {view === "farm" && (
-          <FarmView sel={sel} setSel={setSel} onAddPlate={addPlate} onPrepareInbox={prepareInbox}
+          <FarmView sel={sel} setSel={setSel} onAddPlate={addPlate} onPrepareInbox={prepareInbox} onEditPlate={editPlate} flash={flash}
             onAddPrinter={(place) => setPrinterDialog({ id: null, place })} onEditPrinter={(id) => setPrinterDialog({ id })} />
         )}
-        {view === "timeline" && <TimelineView onPick={(id) => { setSel(id); setView("farm"); }} />}
+        {view === "timeline" && <TimelineView onPick={(id) => { setSel(id); if (!embedded) setView("farm"); }} />}
         {view === "prepare" && (
           <PrepareView prep={{ ...prep, target: prep.target ?? sel ?? snap.data.printers[0]?.id ?? null }} setPrep={setPrep} theme={theme}
             onQueued={(id) => { setSel(id); setView("farm"); }} />

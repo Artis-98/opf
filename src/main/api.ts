@@ -1,7 +1,9 @@
 // OPF's local web server. One port (7878 by default) serves:
 //
 //   /                          the farm, as a web page (the same window as the app)
-//   /api/v1/ui/...             what that page uses: snapshot, actions, live events
+//   /api/v1/ui/...             what that page uses: snapshot, actions, live events;
+//                              and OPF Slicer's plates/: send a sliced plate with its
+//                              project, get a queued plate's project back to edit it
 //   /api/v1/printers, /inbox   the API for other software (token required)
 //   /api/version, /api/files/local
 //                              enough of OctoPrint's API for a slicer to send a
@@ -26,6 +28,7 @@ import { newId, type FarmService } from "../core/farm";
 import type { PlateJob } from "../core/types";
 import type { Result } from "../preload/api";
 import { readPlateFile } from "./plate-file";
+import type { Change, UpdateState } from "./updater";
 
 export interface ServerOptions {
   /** 127.0.0.1 keeps OPF to this computer. */
@@ -36,6 +39,17 @@ export interface ServerOptions {
   uploads: string;
   /** Runs a window action, with the app's side effects (saving settings, telling admin.iiteg). */
   act: (name: string, args: unknown[]) => Promise<Result<unknown>>;
+  /** OPF's own updates, for the page when it is not in OPF's window (OPF Slicer's Farm tab). */
+  updates?: UpdateHooks;
+}
+
+export interface UpdateHooks {
+  /** A newer OPF on GitHub, or null. */
+  state(): UpdateState | null;
+  /** What changed since OPF was last opened; empty after the first time it is asked. */
+  whatsNew(): Change[];
+  /** Close, update through the launcher, and start again. */
+  restart(): void;
 }
 
 export function printerView(farm: FarmService, id?: string) {
@@ -108,38 +122,131 @@ function serveStatic(res: ServerResponse, root: string, path: string) {
   createReadStream(file).pipe(res);
 }
 
-/** A slicer's upload: the multipart form OctoPrint takes (print, path, plateindex, file). */
-function receiveUpload(req: IncomingMessage, dir: string): Promise<{ fields: Record<string, string>; file: string; filename: string }> {
+interface Upload {
+  fields: Record<string, string>;
+  /** By form field name: where it was saved, and the name it was sent with. */
+  files: Record<string, { path: string; filename: string }>;
+}
+
+/**
+ * A multipart upload: OctoPrint's form from a slicer (print, path, plateindex, file),
+ * or OPF Slicer's (file and project). Files are saved in `dir` as they arrive.
+ */
+function receiveUpload(req: IncomingMessage, dir: string, maxFiles = 1): Promise<Upload> {
   return new Promise((resolvePromise, reject) => {
     mkdirSync(dir, { recursive: true });
-    const fields: Record<string, string> = {};
-    let file: string | null = null;
-    let filename = "";
-    let writing: Promise<void> = Promise.resolve();
+    const up: Upload = { fields: {}, files: {} };
+    const writing: Promise<void>[] = [];
     let bb: busboy.Busboy;
     try {
-      bb = busboy({ headers: req.headers, limits: { fileSize: 2 * 1024 ** 3, files: 1 } });
+      bb = busboy({ headers: req.headers, limits: { fileSize: 2 * 1024 ** 3, files: maxFiles } });
     } catch {
       return reject(new Error("Expected a file upload (multipart/form-data)."));
     }
-    bb.on("field", (name, value) => (fields[name] = value));
-    bb.on("file", (_name, stream, info) => {
-      filename = info.filename || "plate.gcode.3mf";
+    bb.on("field", (name, value) => (up.fields[name] = value));
+    bb.on("file", (name, stream, info) => {
+      const filename = info.filename || "plate.gcode.3mf";
       // Keep the extension: the reader tells .gcode from .gcode.3mf by it.
-      file = join(dir, `incoming-${newId("")}${/\.gcode$/i.test(filename) ? ".gcode" : ".gcode.3mf"}`);
-      const out = createWriteStream(file);
-      writing = new Promise((ok, fail) => {
+      const ext = name === "project" ? ".3mf" : /\.gcode$/i.test(filename) ? ".gcode" : ".gcode.3mf";
+      const path = join(dir, `incoming-${newId("")}${ext}`);
+      up.files[name] = { path, filename };
+      const out = createWriteStream(path);
+      writing.push(new Promise((ok, fail) => {
         out.on("finish", ok);
         out.on("error", fail);
-      });
+      }));
       stream.pipe(out);
     });
     bb.on("error", reject);
     bb.on("close", () => {
-      writing.then(() => (file ? resolvePromise({ fields, file, filename }) : reject(new Error("No file in the upload."))), reject);
+      Promise.all(writing).then(() => (Object.keys(up.files).length ? resolvePromise(up) : reject(new Error("No file in the upload."))), reject);
     });
     req.pipe(bb);
   });
+}
+
+/** Deletes files OPF keeps in `dir`; anything elsewhere is left alone. */
+function removeUploads(dir: string, paths: (string | null | undefined)[]) {
+  const base = resolve(dir) + sep;
+  for (const p of paths) {
+    if (!p || !resolve(p).startsWith(base) || !existsSync(p)) continue;
+    try {
+      unlinkSync(p);
+    } catch { /* in use: it stays */ }
+  }
+}
+
+/**
+ * A plate from OPF Slicer's Send to farm: the sliced plate (file), the project it came from
+ * (project), its name, which plate (plate, 1-based), and either the queued plate it replaces
+ * (replace) or the printer it is for (printer). Without a printer OPF picks one.
+ */
+async function receivePlate(req: IncomingMessage, res: ServerResponse, farm: FarmService, opts: ServerOptions) {
+  const up = await receiveUpload(req, opts.uploads, 2);
+  const sent = Object.values(up.files).map((f) => f.path);
+  const sliced = up.files.file;
+  if (!sliced) {
+    removeUploads(opts.uploads, sent);
+    return send(res, 400, { ok: false, error: "The upload has no sliced plate." });
+  }
+  const plate = Math.max(1, parseInt(up.fields.plate ?? "1", 10) || 1);
+  let info;
+  try {
+    info = await readPlateFile(sliced.path, plate);
+  } catch (e) {
+    removeUploads(opts.uploads, sent);
+    return send(res, 400, { ok: false, error: (e as Error).message });
+  }
+
+  const name = str(up.fields.name) ?? plateName(sliced.filename);
+  const stem = join(opts.uploads, `${newId("f-")}-${name.replace(/[^A-Za-z0-9._-]+/g, "_").slice(0, 60)}`);
+  const file = stem + (sliced.path.endsWith(".gcode") ? ".gcode" : ".gcode.3mf");
+  renameSync(sliced.path, file);
+  let project: string | undefined;
+  if (up.files.project) {
+    project = stem + ".3mf";
+    renameSync(up.files.project.path, project);
+  }
+  const job: Omit<PlateJob, "id" | "createdAt"> = {
+    name, ref: null, minutes: info.minutes, grams: info.grams, filaments: info.filaments,
+    file, plate, thumbnail: info.thumbnail, source: "slicer", ...(project ? { project } : {}),
+  };
+
+  const { data, live } = farm.view();
+  const asked = str(up.fields.printer);
+  const printer = asked && data.printers.some((p) => p.id === asked) ? asked : null;
+  const replace = str(up.fields.replace);
+  let id: string | null = null;
+  if (replace) {
+    const r = await opts.act("replaceQueued", [replace, job, printer ?? undefined]);
+    if (!r.ok) {
+      removeUploads(opts.uploads, [file, project]);
+      return send(res, 400, { ok: false, error: r.error });
+    }
+    const old = r.value as PlateJob | null;
+    if (old) {
+      id = replace;
+      removeUploads(opts.uploads, [old.file, old.project]);
+    }
+  }
+  // A new plate, or the one it replaces has started printing meanwhile: it goes in as a new plate.
+  const replaced = id !== null;
+  if (!id) {
+    id = newId("j-");
+    const target = printer ?? bestPrinter(data, live, job);
+    if (!target) {
+      removeUploads(opts.uploads, [file, project]);
+      return send(res, 409, { ok: false, error: "No printer in OPF can take this plate: every printer is offline." });
+    }
+    const q = await opts.act("enqueue", [target, { ...job, id }, "end"]);
+    if (!q.ok) {
+      removeUploads(opts.uploads, [file, project]);
+      return send(res, 400, { ok: false, error: q.error });
+    }
+  }
+  const at = farm.findQueued(id);
+  const p = farm.view().data.printers.find((x) => x.id === at?.printerId);
+  return send(res, 200, { ok: true, value: { job: { id, name }, printer: { id: p?.id ?? null, name: p?.name ?? null }, replaced } });
 }
 
 export function plateName(filename: string) {
@@ -172,6 +279,25 @@ export function startApi(farm: FarmService, opts: ServerOptions): Server | null 
           const b = (await readJson(req)) as { name?: string; args?: unknown[] };
           return send(res, 200, await opts.act(String(b.name), Array.isArray(b.args) ? b.args : []));
         }
+        if (what === "update" && req.method === "GET") return send(res, 200, opts.updates?.state() ?? null);
+        if (what === "whats-new" && req.method === "GET") return send(res, 200, opts.updates?.whatsNew() ?? []);
+        if (what === "restart" && req.method === "POST") {
+          if (!opts.updates) return send(res, 404, { ok: false, error: "This OPF does not update itself." });
+          send(res, 200, { ok: true, value: null });
+          setTimeout(() => opts.updates!.restart(), 200); // after the answer has gone out
+          return;
+        }
+        if (what === "plates" && req.method === "POST") return await receivePlate(req, res, farm, opts);
+        const project = /^plates\/([^/]+)\/project$/.exec(what);
+        if (project && req.method === "GET") {
+          const job = farm.findJob(decodeURIComponent(project[1]));
+          if (!job) return send(res, 404, { ok: false, error: "That plate is no longer in OPF." });
+          if (!job.project || !existsSync(job.project)) {
+            return send(res, 404, { ok: false, error: "This plate was sent without its project, so it cannot be opened. Plates sent with Send to farm in OPF Slicer can." });
+          }
+          res.writeHead(200, { "Content-Type": "model/3mf", "Content-Length": statSync(job.project).size, "Cache-Control": "no-store" });
+          return createReadStream(job.project).pipe(res);
+        }
         if (what === "events" && req.method === "GET") {
           res.writeHead(200, { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", Connection: "keep-alive" });
           const push = (s: unknown) => res.write(`data: ${JSON.stringify(s)}\n\n`);
@@ -195,19 +321,20 @@ export function startApi(farm: FarmService, opts: ServerOptions): Server | null 
       if ((path === "/api/files/local" || path === "/api/files/sdcard") && req.method === "POST") {
         if (!local) return send(res, 403, { error: "Wrong API key. Use the token from OPF's Settings." });
         const up = await receiveUpload(req, opts.uploads);
+        const sent = up.files.file ?? Object.values(up.files)[0];
         const plate = Math.max(1, parseInt(up.fields.plateindex ?? "1", 10) || 1);
         let info;
         try {
-          info = await readPlateFile(up.file, plate);
+          info = await readPlateFile(sent.path, plate);
         } catch (e) {
-          if (existsSync(up.file)) unlinkSync(up.file);
+          removeUploads(opts.uploads, [sent.path]);
           return send(res, 400, { error: (e as Error).message });
         }
         const jobId = newId("j-");
-        const finalPath = join(opts.uploads, `${jobId}-${up.filename.replace(/[^A-Za-z0-9._-]/g, "_")}`);
-        renameSync(up.file, finalPath);
+        const finalPath = join(opts.uploads, `${jobId}-${sent.filename.replace(/[^A-Za-z0-9._-]/g, "_")}`);
+        renameSync(sent.path, finalPath);
         const job: Omit<PlateJob, "id" | "createdAt"> & { id: string } = {
-          id: jobId, name: plateName(up.filename) + (plate > 1 ? ` (plate ${plate})` : ""), ref: null,
+          id: jobId, name: plateName(sent.filename) + (plate > 1 ? ` (plate ${plate})` : ""), ref: null,
           minutes: info.minutes, grams: info.grams, filaments: info.filaments, file: finalPath, plate,
           thumbnail: info.thumbnail, source: "slicer",
         };
@@ -222,7 +349,7 @@ export function startApi(farm: FarmService, opts: ServerOptions): Server | null 
           const l = v.live[target];
           if (!v.data.current[target] && l && l.status === "idle") await opts.act("startNext", [target]);
         }
-        return send(res, 201, { done: true, files: { local: { name: up.filename, origin: "local" } }, opf: { printer: target, job: jobId } });
+        return send(res, 201, { done: true, files: { local: { name: sent.filename, origin: "local" } }, opf: { printer: target, job: jobId } });
       }
       if (path === "/api/files" && req.method === "GET") return send(res, 200, { files: [], free: 0 });
 

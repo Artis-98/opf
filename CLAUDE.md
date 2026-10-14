@@ -35,6 +35,20 @@ changed, build, open). An open OPF checks GitHub every 3 minutes and offers
   `src/core/farm.ts`).
 - They test on simulated A1 / A1 mini printers (Settings → Test printers).
 
+## OPF Slicer (Artis-98/opf-slicer)
+
+The OrcaSlicer fork the owner uses: tabs Farm, Timeline, Prepare, Preview. Farm
+and Timeline load this web page with `?embed=farm|timeline&theme=dark|light`;
+the page then hides OPF's own tabs and talks to the slicer with
+`window.wx.postMessage` (`toSlicer()` in `src/renderer/src/bridge.ts`; the
+messages are listed in the fork's `OPF.md`). Send to farm posts to
+`/api/v1/ui/plates`, Edit fetches `/api/v1/ui/plates/<id>/project`. When the farm
+does not answer, the slicer runs `launch.cjs --background` through
+`launcher.json` (in OPF's settings folder): Electron with no window and a tray
+icon, and closing a window opened later keeps it running. Changing these
+messages or endpoints needs the fork changed too, and a slicer build takes about
+an hour, so keep them backward compatible.
+
 ## OrcaSlicer
 
 The plan (owner's choice, Oct 2026) is an OrcaSlicer fork with OPF's farm as a

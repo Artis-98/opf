@@ -4,3 +4,4 @@ dist-demo/
 release/
 *.log
 .DS_Store
+.launch.lock

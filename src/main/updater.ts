@@ -81,13 +81,17 @@ export async function changesSinceLastRun(root: string, stateFile: string): Prom
   }
 }
 
-/** Start the launcher, which waits for this window to close, updates, and opens OPF again. */
-export function restartThroughLauncher(root: string) {
-  const child = spawn(process.platform === "win32" ? "node.exe" : "node", [join(root, "scripts", "launch.cjs"), "--wait"], {
+/**
+ * Start the launcher, which waits for this OPF to close, updates, and opens OPF again.
+ * In the background (started for OPF Slicer) it stays without a window and out of sight.
+ */
+export function restartThroughLauncher(root: string, background = false) {
+  const args = [join(root, "scripts", "launch.cjs"), "--wait", ...(background ? ["--background"] : [])];
+  const child = spawn(process.platform === "win32" ? "node.exe" : "node", args, {
     cwd: root,
     detached: true,
     stdio: "ignore",
-    windowsHide: false,
+    windowsHide: background,
   });
   child.unref();
 }
