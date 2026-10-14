@@ -75,3 +75,34 @@ export function matchFilaments(job: Pick<PlateJob, "filaments">, live: LiveState
 export function filamentOk(job: Pick<PlateJob, "filaments">, live: LiveState | undefined): boolean {
   return matchFilaments(job, live).every((m) => m.slot !== null);
 }
+
+/** What is wrong with the filament for a plate, in one sentence; null when everything is loaded. */
+export function filamentWarning(job: Pick<PlateJob, "filaments">, live: LiveState | undefined): string | null {
+  const problems = matchFilaments(job, live).filter((m) => !m.slot).map((m) => m.problem);
+  return problems.length ? problems.join(". ") : null;
+}
+
+/**
+ * The slot to feed each of a plate's filaments from, in the plate's order: its match, or, when the
+ * operator chose to start anyway, the closest loaded spool (the same material first, then the
+ * nearest colour). Null for a filament with nothing to feed it.
+ */
+export function slotsForStart(job: Pick<PlateJob, "filaments">, live: LiveState | undefined, anyFilament: boolean): (FilamentSlot | null)[] {
+  const matches = matchFilaments(job, live);
+  if (!anyFilament) return matches.map((m) => m.slot);
+  const loaded = loadedSlots(live);
+  const used = new Set(matches.map((m) => m.slot).filter((s): s is FilamentSlot => s !== null));
+  return matches.map((m) => {
+    if (m.slot) return m.slot;
+    const fam = materialFamily(m.need.material);
+    const rank = (s: FilamentSlot) => [fam && s.material && materialFamily(s.material) === fam ? 0 : 1, s.color ? colorDistance(s.color, m.need.color) : Infinity];
+    const byFit = (a: FilamentSlot, b: FilamentSlot) => {
+      const [ma, da] = rank(a), [mb, db] = rank(b);
+      return ma - mb || da - db;
+    };
+    // A spool no other filament uses, or, with more filaments than spools, the closest one anyway.
+    const pick = loaded.filter((s) => !used.has(s)).sort(byFit)[0] ?? [...loaded].sort(byFit)[0] ?? null;
+    if (pick) used.add(pick);
+    return pick;
+  });
+}

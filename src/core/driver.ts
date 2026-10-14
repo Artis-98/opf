@@ -6,11 +6,16 @@
 
 import type { LiveState, PlateJob, PrinterConfig } from "./types";
 
+export interface StartOptions {
+  /** Start even though a filament is not loaded in its colour: the operator said so. */
+  anyFilament?: boolean;
+}
+
 export interface PrinterDriver {
   connect(): void;
   disconnect(): void;
   /** Send a sliced plate to the printer and start it. */
-  start(job: PlateJob): Promise<void>;
+  start(job: PlateJob, opts?: StartOptions): Promise<void>;
   pause(): Promise<void>;
   resume(): Promise<void>;
   stop(): Promise<void>;

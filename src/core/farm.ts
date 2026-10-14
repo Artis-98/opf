@@ -5,7 +5,7 @@
 // list of things a window (or the local API) may ask for is written down once.
 
 import { wrongPrinter } from "./assign";
-import { emptyLive, type DriverFactory, type PrinterDriver } from "./driver";
+import { emptyLive, type DriverFactory, type PrinterDriver, type StartOptions } from "./driver";
 import type { FarmData, InboxItem, LiveState, PlateJob, PrinterConfig, Settings, SlicerInfo, Snapshot } from "./types";
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -341,7 +341,7 @@ export class FarmService {
 
   /* ---------- printing ---------- */
 
-  async startNext(printerId: string) {
+  async startNext(printerId: string, opts: StartOptions = {}) {
     const p = this.printer(printerId);
     const q = this.queue(printerId);
     const live = this.live[printerId];
@@ -352,7 +352,7 @@ export class FarmService {
     const job = q[0];
     if (!job.file && p.driver !== "simulator") throw new Error("Slice this plate before sending it. It only has an estimate.");
     this.checkFits(job, printerId);
-    await this.drivers.get(printerId)!.start(job);
+    await this.drivers.get(printerId)!.start(job, opts);
     q.shift();
     this.data.current[printerId] = job;
     this.changed(true);
@@ -376,7 +376,7 @@ export class FarmService {
   }
 
   /** Someone took the parts off. Optionally start the next plate straight away. */
-  async clearBed(printerId: string, startNext = false) {
+  async clearBed(printerId: string, startNext = false, opts: StartOptions = {}) {
     const job = this.data.current[printerId];
     const live = this.live[printerId];
     if (job) {
@@ -387,7 +387,7 @@ export class FarmService {
     if (live && live.status === "finished") this.live[printerId] = { ...live, status: "idle", progress: 0, remainingSec: null, jobName: null };
     this.trimHistory();
     this.changed(true);
-    if (startNext && this.queue(printerId).length) await this.startNext(printerId);
+    if (startNext && this.queue(printerId).length) await this.startNext(printerId, opts);
   }
 
   private trimHistory() {

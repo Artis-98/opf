@@ -2,7 +2,7 @@ import { useMemo, useState, type DragEvent } from "react";
 import { useFarm, useNow } from "../state";
 import { opf } from "../bridge";
 import { schedulePrinter, type Slot } from "../../../core/schedule";
-import { matchFilaments } from "../../../core/filament";
+import { filamentWarning, matchFilaments } from "../../../core/filament";
 import { wrongPrinter } from "../../../core/assign";
 import type { InboxItem, PlateJob, PrinterConfig, PrinterStatus, Snapshot } from "../../../core/types";
 import { PlateThumb, PrinterArt } from "../components/PrinterArt";
@@ -297,6 +297,8 @@ function Inspector({ id, now, onAddPlate, onEdit, onEditPlate, flash }: {
 }) {
   const { snap, act, toast } = useFarm();
   const [confirmStop, setConfirmStop] = useState(false);
+  // Starting a plate whose filament is not loaded: asked first, then started on the closest spools.
+  const [ask, setAsk] = useState<{ text: string; go: () => void } | null>(null);
   const [dragQ, setDragQ] = useState<number | null>(null);
   const [overQ, setOverQ] = useState<number | null>(null);
   const p = snap.data.printers.find((x) => x.id === id)!;
@@ -316,6 +318,18 @@ function Inspector({ id, now, onAddPlate, onEdit, onEditPlate, flash }: {
     const r = await act(name, ...args);
     return r;
   };
+  /** Starts the next plate, asking first when its filament is not loaded. */
+  const startNext = (start: (anyFilament: boolean) => void) => {
+    const warn = queue[0] ? filamentWarning(queue[0], live) : null;
+    if (warn) setAsk({ text: `${warn} on ${p.name}. Start ${queue[0].name} anyway?`, go: () => start(true) });
+    else start(false);
+  };
+  const askBlock = ask && (
+    <div className="confirm warn">{ask.text}
+      <button className="btn sm pri" onClick={() => { const go = ask.go; setAsk(null); go(); }}>Start anyway</button>
+      <button className="btn sm" onClick={() => setAsk(null)}>Cancel</button>
+    </div>
+  );
 
   let liveBlock: React.ReactNode;
   if (st === "printing" || st === "paused" || st === "preparing" || st === "error") {
@@ -363,18 +377,20 @@ function Inspector({ id, now, onAddPlate, onEdit, onEditPlate, flash }: {
         <div className="banner warn"><b>{cur?.name ?? live?.jobName ?? "The print"} is finished</b>Take the parts off and confirm the bed is clear.{queue[0] ? ` Then ${queue[0].name} starts.` : ""}</div>
         {cur && <div className="cur"><PlateThumb job={cur} /><div><div className="cur-name">{cur.name}</div><div className="cur-meta">{cur.ref && <><span className="ref">{cur.ref}</span> · </>}{cur.grams} g</div></div></div>}
         {nextMissing.length > 0 && <div className="banner warn">{nextMissing.map((m) => m.problem).join(". ")}.</div>}
-        <div className="row">
-          {queue.length > 0 && <button className="btn pri" onClick={async () => { if ((await run("clearBed", id, true)) !== undefined) toast(`${p.name} started ${queue[0].name}`); }}>Bed is clear, start next</button>}
-          <button className={`btn ${queue.length ? "" : "pri"}`} onClick={() => run("clearBed", id, false)}>Bed is clear{queue.length ? ", don't start" : ""}</button>
-        </div>
+        {askBlock || (
+          <div className="row">
+            {queue.length > 0 && <button className="btn pri" onClick={() => startNext(async (anyFilament) => { if ((await run("clearBed", id, true, { anyFilament })) !== undefined) toast(`${p.name} started ${queue[0].name}`); })}>Bed is clear, start next</button>}
+            <button className={`btn ${queue.length ? "" : "pri"}`} onClick={() => run("clearBed", id, false)}>Bed is clear{queue.length ? ", don't start" : ""}</button>
+          </div>
+        )}
       </>
     );
   } else if (st === "idle") {
     liveBlock = (
       <>
         <div className="banner neutral"><b>Idle</b>{queue.length ? `${queue.length} plate${queue.length > 1 ? "s" : ""} waiting.` : "Nothing queued. Add a plate or take one from the inbox."}</div>
-        {nextMissing.length > 0 && <div className="banner warn"><b>Load filament first</b>{nextMissing.map((m) => m.problem).join(". ")}.</div>}
-        {queue.length > 0 && <div className="row"><button className="btn pri" onClick={async () => { if ((await run("startNext", id)) !== undefined) toast(`${p.name} started ${queue[0].name}`); }}>Start {queue[0].name}</button></div>}
+        {nextMissing.length > 0 && !ask && <div className="banner warn"><b>Check the filament</b>{nextMissing.map((m) => m.problem).join(". ")}.</div>}
+        {queue.length > 0 && (askBlock || <div className="row"><button className="btn pri" onClick={() => startNext(async (anyFilament) => { if ((await run("startNext", id, { anyFilament })) !== undefined) toast(`${p.name} started ${queue[0].name}`); })}>Start {queue[0].name}</button></div>)}
       </>
     );
   } else {

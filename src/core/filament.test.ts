@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { emptyLive } from "./driver";
-import { colorDistance, filamentOk, materialFamily, matchFilaments, SAME_COLOR } from "./filament";
+import { colorDistance, filamentOk, filamentWarning, materialFamily, matchFilaments, SAME_COLOR, slotsForStart } from "./filament";
+import type { LiveState } from "./types";
 import { amsOf } from "./simulator";
 
 const live = (...slots: [string, string, number?][]) => ({ ...emptyLive("idle"), ams: amsOf(...slots) });
@@ -70,5 +71,26 @@ describe("matchFilaments", () => {
   it("uses the external spool too", () => {
     const l = { ...emptyLive("idle"), external: { unit: -1, slot: 0, color: "#000000", material: "PLA", remainPct: null } };
     expect(filamentOk({ filaments: [{ color: "#000000", material: "PLA", grams: 1 }] }, l)).toBe(true);
+  });
+});
+
+describe("starting with filament that is not loaded", () => {
+  const live = (...slots: [string, string][]): LiveState => ({
+    ...emptyLive("idle"),
+    ams: [{ id: 0, humidity: null, tempC: null, slots: slots.map(([color, material], i) => ({ unit: 0, slot: i, color, material, remainPct: null })) }],
+  });
+  const job = (...f: [string, string][]) => ({ filaments: f.map(([color, material]) => ({ color, material, grams: 5 })) });
+
+  it("says what is missing, or nothing when it is all loaded", () => {
+    expect(filamentWarning(job(["#FF0000", "PLA"]), live(["#FF0000", "PLA"]))).toBeNull();
+    expect(filamentWarning(job(["#00FF00", "PLA"]), live(["#FF0000", "PLA"]))).toBe("PLA in this colour is not loaded");
+  });
+
+  it("feeds a missing colour from the closest spool of the same material when started anyway", () => {
+    const l = live(["#FFFFFF", "PETG"], ["#FF2020", "PLA"], ["#000000", "PLA"]);
+    const slots = slotsForStart(job(["#FF0000", "PLA"], ["#202020", "PLA"], ["#00FF00", "PLA"]), l, true);
+    expect(slots.map((s) => s?.slot)).toEqual([1, 2, 0]); // red, black, then the only spool left
+    expect(slotsForStart(job(["#00FF00", "PLA"]), l, false)).toEqual([null]);
+    expect(slotsForStart(job(["#00FF00", "PLA"]), emptyLive("idle"), true)).toEqual([null]);
   });
 });

@@ -17,9 +17,9 @@ import { createReadStream } from "node:fs";
 import { basename } from "node:path";
 import mqtt, { type MqttClient } from "mqtt";
 import { Client as FtpClient } from "basic-ftp";
-import type { Emit, PrinterDriver } from "../../core/driver";
+import type { Emit, PrinterDriver, StartOptions } from "../../core/driver";
 import { amsMapping, liveFromReport, mergeReport } from "../../core/bambu-report";
-import { matchFilaments } from "../../core/filament";
+import { matchFilaments, slotsForStart } from "../../core/filament";
 import type { LiveState, PlateJob, PrinterConfig } from "../../core/types";
 
 type Json = Record<string, unknown>;
@@ -93,7 +93,7 @@ export class BambuDriver implements PrinterDriver {
   async resume() { this.command("resume"); }
   async stop() { this.command("stop"); }
 
-  async start(job: PlateJob) {
+  async start(job: PlateJob, opts: StartOptions = {}) {
     if (!job.file) throw new Error("Slice this plate before sending it.");
     const { host, accessCode } = this.cfg;
     const remote = `opf-${job.id}${/\.gcode$/i.test(job.file) ? ".gcode" : ".gcode.3mf"}`.replace(/[^A-Za-z0-9._-]/g, "_");
@@ -103,10 +103,10 @@ export class BambuDriver implements PrinterDriver {
     const hasAms = (live.ams?.length ?? 0) > 0;
     let mapping: number[] = [];
     if (job.filaments.length) {
-      const matches = matchFilaments(job, live);
-      const missing = matches.filter((m) => !m.slot);
-      if (missing.length) throw new Error(`Load the filament first: ${missing.map((m) => m.problem).join("; ")}.`);
-      mapping = amsMapping(matches.map((m) => m.slot));
+      const missing = matchFilaments(job, live).filter((m) => !m.slot);
+      if (missing.length && !opts.anyFilament) throw new Error(`Load the filament first: ${missing.map((m) => m.problem).join("; ")}.`);
+      // Started anyway: the closest loaded spools, or the external spool when nothing is loaded.
+      mapping = amsMapping(slotsForStart(job, live, true)).map((m) => (m < 0 ? 254 : m));
     }
 
     const ftp = new FtpClient(30_000);
