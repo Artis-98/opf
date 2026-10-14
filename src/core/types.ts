@@ -159,6 +159,11 @@ export interface FarmData {
   history: { printerId: string; job: PlateJob; endedAt: number; outcome: "done" | "stopped" | "failed" }[];
   /** Ids already taken from the inbox source, so a handled order is not fetched again. */
   sourceSeen: string[];
+  /**
+   * Printers whose bed was confirmed clear after a print they still report as finished (Bambu Lab
+   * printers do until the next print starts), by that print's name. They show as idle meanwhile.
+   */
+  bedCleared?: Record<string, string>;
   settings: Settings;
 }
 

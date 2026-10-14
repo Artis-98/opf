@@ -105,13 +105,22 @@ export class FarmService {
   private onLive(id: string, patch: Partial<LiveState>) {
     const prev = this.live[id] ?? emptyLive();
     const next: LiveState = { ...prev, ...patch, updatedAt: Date.now() };
+    let persist = false;
+    // The bed was cleared after this print, but the printer still calls it finished: it is idle.
+    const cleared = this.data.bedCleared?.[id];
+    if (cleared !== undefined) {
+      if (next.status === "finished" && (next.jobName ?? "") === cleared) {
+        Object.assign(next, { status: "idle", progress: 0, remainingSec: null });
+      } else if (next.status === "printing" || next.status === "preparing" || next.status === "finished") {
+        // A new print: the next time it finishes, the bed needs clearing again.
+        delete this.data.bedCleared![id];
+        persist = true;
+      }
+    }
     this.live[id] = next;
     // A print that started from the printer's own screen or another app still shows up, without a plate in OPF.
-    if (prev.status !== next.status && next.status === "finished" && this.data.current[id]) {
-      this.changed(true);
-    } else {
-      this.changed(false);
-    }
+    if (prev.status !== next.status && next.status === "finished" && this.data.current[id]) persist = true;
+    this.changed(persist);
   }
 
   snapshot(): Snapshot {
@@ -195,6 +204,7 @@ export class FarmService {
     }
     delete this.data.queues[id];
     delete this.data.current[id];
+    if (this.data.bedCleared) delete this.data.bedCleared[id];
     this.changed(true);
   }
 
@@ -384,7 +394,11 @@ export class FarmService {
       this.data.history.unshift({ printerId, job, endedAt: Date.now(), outcome: failed ? "failed" : "done" });
     }
     this.data.current[printerId] = null;
-    if (live && live.status === "finished") this.live[printerId] = { ...live, status: "idle", progress: 0, remainingSec: null, jobName: null };
+    if (live && live.status === "finished") {
+      // Until the printer starts its next print, it keeps calling this one finished.
+      (this.data.bedCleared ??= {})[printerId] = live.jobName ?? "";
+      this.live[printerId] = { ...live, status: "idle", progress: 0, remainingSec: null };
+    }
     this.trimHistory();
     this.changed(true);
     if (startNext && this.queue(printerId).length) await this.startNext(printerId, opts);

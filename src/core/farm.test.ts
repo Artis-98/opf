@@ -147,3 +147,46 @@ describe("FarmService", () => {
     farm.shutdown();
   });
 });
+
+describe("a printer that keeps saying finished", () => {
+  // Bambu Lab printers report FINISH until the next print starts, every few seconds.
+  function withFakePrinter() {
+    let emit: (patch: object) => void = () => {};
+    const factory: DriverFactory = (_cfg, e) => {
+      emit = e;
+      return { connect() {}, disconnect() {}, start: async () => {}, pause: async () => {}, resume: async () => {}, stop: async () => {} };
+    };
+    const saved: FarmData[] = [];
+    const farm = new FarmService(emptyFarm(), factory, { persist: (d) => saved.push(structuredClone(d)), slicer: () => ({ found: false, name: null, path: null }) });
+    farm.start();
+    const id = farm.addPrinter({ name: "A1", model: "Bambu Lab A1", driver: "bambu" });
+    const status = () => farm.snapshot().live[id].status;
+    return { farm, id, saved, status, report: (status: string, jobName = "Clips") => emit({ status, jobName }) };
+  }
+
+  it("stays idle once the bed is cleared, until it starts a new print", async () => {
+    const { farm, id, saved, status, report } = withFakePrinter();
+    report("finished");
+    expect(status()).toBe("finished");
+    await farm.clearBed(id);
+    report("finished");
+    expect(status()).toBe("idle");
+    expect(saved.at(-1)!.bedCleared).toEqual({ [id]: "Clips" }); // also after OPF restarts
+
+    report("preparing", "Brackets");
+    report("printing", "Brackets");
+    report("finished", "Brackets");
+    expect(status()).toBe("finished");
+    expect(saved.at(-1)!.bedCleared).toEqual({});
+    farm.shutdown();
+  });
+
+  it("still says so when a different print finished", async () => {
+    const { farm, id, status, report } = withFakePrinter();
+    report("finished", "Clips");
+    await farm.clearBed(id);
+    report("finished", "Started on the printer's screen");
+    expect(status()).toBe("finished");
+    farm.shutdown();
+  });
+});
