@@ -48,7 +48,7 @@ export interface FarmOptions {
 export const ACTIONS = [
   "addPrinter", "updatePrinter", "removePrinter",
   "addShelf", "renameShelf", "removeShelf", "addSlot", "removeSlot", "placePrinter",
-  "enqueue", "reorder", "dequeue", "transfer", "updateJob", "replaceQueued",
+  "enqueue", "reorder", "dequeue", "transfer", "updateJob", "replaceQueued", "duplicateQueued",
   "startNext", "pause", "resume", "stop", "clearBed",
   "addInbox", "removeInbox", "updateSettings", "replaceData", "addTestPrinters",
 ] as const;
@@ -300,6 +300,23 @@ export class FarmService {
     if (position === "next") to.unshift(j);
     else to.push(j);
     this.changed(true);
+  }
+
+  /** Copies of a queued plate, right after it: the same plate printed again. Returns the copies' ids. */
+  duplicateQueued(printerId: string, index: number, count = 1): string[] {
+    const q = this.queue(printerId);
+    const job = q[index];
+    if (!job) return [];
+    const copies = Array.from({ length: Math.max(1, Math.min(50, Math.floor(count))) }, () => ({ ...structuredClone(job), id: newId("j-"), createdAt: Date.now() }));
+    q.splice(index + 1, 0, ...copies);
+    this.changed(true);
+    return copies.map((c) => c.id);
+  }
+
+  /** Whether any plate (queued, on a printer, or printed) still uses a file. Copies share their files. */
+  fileInUse(path: string): boolean {
+    const uses = (j: PlateJob | null | undefined) => !!j && (j.file === path || j.project === path);
+    return Object.values(this.data.queues).some((q) => q.some(uses)) || Object.values(this.data.current).some(uses) || this.data.history.some((h) => uses(h.job));
   }
 
   /** Where a queued plate is: its printer, and its place in that printer's queue. */

@@ -15,6 +15,7 @@ import type { UpdateHooks } from "./api";
 import { changesSinceLastRun, checkForUpdate, isCheckout, restartThroughLauncher, type Change, type UpdateState } from "./updater";
 import { slicerExe, startMini, type Mini } from "./mini";
 import icon from "../../resources/icon.png?asset";
+import trayIcon from "../../resources/tray.png?asset";
 
 let win: BrowserWindow | null = null;
 let mini: Mini | null = null;
@@ -192,6 +193,7 @@ app.whenReady().then(() => {
 
   mini = startMini(farm, {
     icon,
+    trayIcon,
     preload: join(__dirname, "../preload/index.js"),
     page: { url: process.env.ELECTRON_RENDERER_URL, file: join(__dirname, "../renderer/index.html") },
     openFull,

@@ -192,6 +192,17 @@ describe("local API", () => {
     expect(await (await fetch(`${base}/api/v1/ui/plates/${before.id}/project`)).text()).toBe("v2");
   });
 
+  it("keeps the files of a plate that was duplicated when one copy is edited", async () => {
+    const base = (await setup()).replace("/api/v1", "");
+    const a = farm.addPrinter({ name: "A1", model: "m", driver: "simulator" });
+    const sent = (await (await sendPlate(base, { name: "Clip", printer: a }, strToU8("v1"))).json()) as Sent;
+    farm.duplicateQueued(a, 0, 1);
+    const copy = farm.view().data.queues[a][1];
+    await sendPlate(base, { name: "Clip v2", replace: sent.value.job.id, printer: a }, strToU8("v2"));
+    expect(farm.view().data.queues[a].map((j) => j.name)).toEqual(["Clip v2", "Clip"]);
+    expect(await (await fetch(`${base}/api/v1/ui/plates/${copy.id}/project`)).text()).toBe("v1");
+  });
+
   it("adds an edited plate as a new one when the old one is no longer queued", async () => {
     const base = (await setup()).replace("/api/v1", "");
     const a = farm.addPrinter({ name: "A1", model: "m", driver: "simulator" });

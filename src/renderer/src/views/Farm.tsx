@@ -455,6 +455,7 @@ function Inspector({ id, now, onAddPlate, onEdit, onEditPlate, flash }: {
                 <div style={{ display: "grid", gap: 4, justifyItems: "end" }}>
                   <div className="qi-acts">
                     {onEditPlate && job.project && <button className="btn sm" title="Open this plate in Prepare to change it" onClick={() => onEditPlate(job)}>{Icon.edit}Edit</button>}
+                    <button className="icon-btn" title="Duplicate: print this plate once more" aria-label="Duplicate" onClick={async () => { if ((await act("duplicateQueued", id, i, 1)) !== undefined) toast(`${job.name} added once more`); }}>{Icon.copy}</button>
                     <button className="icon-btn" title="Move up" aria-label="Move up" disabled={i === 0} onClick={() => act("reorder", id, i, i - 1)}>{Icon.up}</button>
                     <button className="icon-btn" title="Move down" aria-label="Move down" disabled={i === queue.length - 1} onClick={() => act("reorder", id, i, i + 1)}>{Icon.down}</button>
                     <button className="icon-btn" title="Remove from queue" aria-label="Remove from queue" onClick={async () => { await act("dequeue", id, i); toast(`${job.name} removed from ${p.name}`); }}>{Icon.x}</button>

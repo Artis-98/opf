@@ -190,3 +190,23 @@ describe("a printer that keeps saying finished", () => {
     farm.shutdown();
   });
 });
+
+describe("duplicating a plate", () => {
+  it("puts copies right after it, each its own plate on the same files", () => {
+    const { farm } = setup();
+    const a = farm.addPrinter({ name: "A1", model: "m", driver: "simulator" });
+    farm.enqueue(a, { ...plate("Clips"), file: "/u/clips.gcode.3mf", project: "/u/clips.3mf" });
+    farm.enqueue(a, plate("Lid"));
+    const ids = farm.duplicateQueued(a, 0, 2);
+    const q = farm.snapshot().data.queues[a];
+    expect(q.map((j) => j.name)).toEqual(["Clips", "Clips", "Clips", "Lid"]);
+    expect(new Set(q.map((j) => j.id)).size).toBe(4);
+    expect(q.slice(1, 3).map((j) => j.id)).toEqual(ids);
+    expect(farm.fileInUse("/u/clips.3mf")).toBe(true);
+    farm.dequeue(a, 0); farm.dequeue(a, 0);
+    expect(farm.fileInUse("/u/clips.gcode.3mf")).toBe(true);
+    farm.dequeue(a, 0);
+    expect(farm.fileInUse("/u/clips.gcode.3mf")).toBe(false);
+    farm.shutdown();
+  });
+});

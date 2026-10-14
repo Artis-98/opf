@@ -226,7 +226,8 @@ async function receivePlate(req: IncomingMessage, res: ServerResponse, farm: Far
     const old = r.value as PlateJob | null;
     if (old) {
       id = replace;
-      removeUploads(opts.uploads, [old.file, old.project]);
+      // A copy of the plate may still use them.
+      removeUploads(opts.uploads, [old.file, old.project].filter((f) => f && !farm.fileInUse(f)));
     }
   }
   // A new plate, or the one it replaces has started printing meanwhile: it goes in as a new plate.

@@ -12,6 +12,8 @@ import type { PrinterStatus, Snapshot } from "../core/types";
 
 export interface MiniOptions {
   icon: string;
+  /** The empty shelf alone, for the tray next to the clock. */
+  trayIcon: string;
   preload: string;
   /** The window's page: the dev server's address, or the built index.html. */
   page: { url?: string; file: string };
@@ -30,7 +32,7 @@ export interface Mini {
 const WIDTH = 380, HEIGHT = 540;
 
 export function startMini(farm: FarmService, opts: MiniOptions): Mini {
-  const tray = new Tray(opts.icon);
+  const tray = new Tray(opts.trayIcon);
   let popup: BrowserWindow | null = null;
   let hiddenAt = 0;
 
