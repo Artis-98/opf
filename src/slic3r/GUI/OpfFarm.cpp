@@ -11,6 +11,7 @@
 #include <boost/log/trivial.hpp>
 #include <boost/system/error_code.hpp>
 #include <nlohmann/json.hpp>
+#include <wx/stdpaths.h>
 #include <wx/utils.h>
 
 #include "GUI.hpp"
@@ -324,22 +325,60 @@ void OpfFarm::on_sent(const std::string& body)
     frame->run_farm_script(from_u8("window.opfShowJob && window.opfShowJob(" + json(job).dump() + ")"));
 }
 
+OpfFarm::OpfFarm()
+{
+    // Opened by OPF's launcher, which has just started the farm: it is on its way.
+    wxString starting;
+    if (wxGetEnv("OPF_FARM_STARTING", &starting) && starting == "1")
+        m_started_at = std::chrono::steady_clock::now();
+}
+
+void OpfFarm::record_slicer()
+{
+    // OPF's desktop icon opens the slicer, with the farm running in the background, once it knows where
+    // the slicer is.
+    try {
+        const fs::path dir = opf_data_dir();
+        if (dir.empty())
+            return;
+        fs::create_directories(dir);
+        boost::filesystem::ofstream file(dir / "slicer.json", std::ios::trunc);
+        file << json{{"exe", into_u8(wxStandardPaths::Get().GetExecutablePath())}}.dump(2);
+    } catch (const std::exception& e) {
+        BOOST_LOG_TRIVIAL(warning) << "OPF: could not record where the slicer is: " << e.what();
+    }
+}
+
 bool OpfFarm::start_service()
 {
     const auto now = std::chrono::steady_clock::now();
     if (m_started_at != std::chrono::steady_clock::time_point{} && now - m_started_at < std::chrono::minutes(2))
         return true;
-    // Written by OPF's launcher each time it runs: the Node.js it ran with and the launcher script.
+    // Written by OPF each time it starts: the Node.js its launcher runs with and the launcher script.
     std::string node, script;
     try {
         boost::filesystem::ifstream file(opf_data_dir() / "launcher.json");
-        if (!file)
-            return false;
-        const json launcher = json::parse(file);
-        node                = launcher.value("node", "");
-        script              = launcher.value("script", "");
+        if (file) {
+            const json launcher = json::parse(file);
+            node                = launcher.value("node", "");
+            script              = launcher.value("script", "");
+        }
     } catch (const std::exception&) {
-        return false;
+        node.clear();
+        script.clear();
+    }
+    // Not written yet (OPF has not run since it was updated): OPF where it is usually kept, the "opf"
+    // folder in Documents, and Node.js from the PATH.
+    if (node.empty() || script.empty()) {
+        const fs::path documents = into_path(wxStandardPaths::Get().GetDocumentsDir());
+        for (const fs::path& root : {documents / "opf", into_path(wxGetHomeDir()) / "Documents" / "opf", into_path(wxGetHomeDir()) / "opf"}) {
+            boost::system::error_code ec;
+            if (fs::exists(root / "scripts" / "launch.cjs", ec)) {
+                node   = "node";
+                script = (root / "scripts" / "launch.cjs").string();
+                break;
+            }
+        }
     }
     if (node.empty() || script.empty())
         return false;

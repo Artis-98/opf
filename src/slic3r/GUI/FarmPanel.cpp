@@ -44,6 +44,8 @@ FarmPanel::FarmPanel(wxWindow* parent, std::string view)
     m_browser->Bind(wxEVT_WEBVIEW_SCRIPT_MESSAGE_RECEIVED, &FarmPanel::on_script_message, this);
     sizer->Add(m_browser, wxSizerFlags().Expand().Proportion(1));
     SetSizer(sizer);
+    if (m_view == "farm")
+        OpfFarm::get().record_slicer();
 }
 
 FarmPanel::~FarmPanel()
@@ -119,8 +121,8 @@ void FarmPanel::show_not_running(bool starting)
     const wxString url   = OpfFarm::page_url(m_view);
     const wxString title = html_escape(starting ? _L("Starting OPF...") : _L("OPF is not running"));
     const wxString body  = html_escape(starting ? _L("OPF checks for a new version and starts. Your printers appear here in a moment.") :
-                                                  _L("The Farm tab shows your printers on their shelves, each printer's queue and the timeline from OPF. "
-                                                     "Start OPF from its desktop icon and the farm appears here."));
+                                                  _L("This tab could not find OPF on this computer to start it. Open OPF once from its desktop "
+                                                     "icon; after that this tab starts it by itself."));
     const wxString retry = html_escape(_L("Try again"));
     // TRN: %1% is a web address such as http://127.0.0.1:7878/
     const wxString where = html_escape(format_wxstr(_L("Looking for OPF at %1%"), OpfFarm::farm_url()));

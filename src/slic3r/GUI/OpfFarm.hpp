@@ -33,11 +33,15 @@ public:
     // The print button's label for Send to farm.
     wxString send_label() const;
 
-    // Starts the farm service without a window, through the launcher OPF leaves its address in.
-    // True when it is starting; false when OPF is not set up on this computer.
+    // Starts the farm service without a window, through OPF's launcher. True when it is starting; false
+    // when OPF is not found on this computer.
     bool start_service();
+    // Tells OPF where this slicer is, so OPF's desktop icon opens it.
+    void record_slicer();
 
 private:
+    OpfFarm();
+
     void edit_plate(const std::string& job, const std::string& name, int plate);
     void open_project(const std::string& job, const boost::filesystem::path& path, int plate);
     void new_plate(const std::string& printer, const std::string& name, const std::string& machine);

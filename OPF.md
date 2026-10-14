@@ -13,7 +13,11 @@ Prepare and Preview are OrcaSlicer's own and are kept close to upstream so its u
   `http://127.0.0.1:7878/` (or the `opf_farm_url` app config value), with `?embed=farm` or
   `?embed=timeline` so the page shows that one view. When OPF is not answering, the tab starts it
   in the background through the launcher whose location OPF writes to `launcher.json` in its
-  settings folder (`%APPDATA%\OPF` on Windows), says so, and keeps retrying.
+  settings folder (`%APPDATA%\OPF` on Windows), or, before OPF has written it, the launcher in
+  `Documents\opf` run with `node` from the PATH. It says so and keeps retrying.
+- **One program**: the slicer writes its own location to `slicer.json` in OPF's settings folder, and
+  OPF's desktop icon then starts the farm in the background and opens the slicer. It sets
+  `OPF_FARM_STARTING=1` for the slicer, so the Farm tab waits for that farm instead of starting another.
 - **Send to farm** (`src/slic3r/GUI/OpfFarm.*`) is the print button's default action. It sends the
   current plate, sliced (`.gcode.3mf`, as Export plate sliced file writes it), together with a copy of
   the project to `POST /api/v1/ui/plates`. It goes to the printer chosen in the Farm tab, or OPF
