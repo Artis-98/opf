@@ -1,4 +1,6 @@
 import { app, BrowserWindow, dialog, ipcMain, Menu, shell, Tray } from "electron";
+import { execFile } from "node:child_process";
+import { existsSync, writeFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { basename, join } from "node:path";
 import type { FarmService } from "../core/farm";
@@ -116,7 +118,25 @@ function watchForUpdates(): UpdateHooks {
   return hooks;
 }
 
+/**
+ * Where OPF's launcher is, for OPF Slicer to start OPF. The launcher writes this each time it runs;
+ * this covers a copy updated by an older launcher, which did not.
+ */
+function recordLauncher() {
+  const root = app.getAppPath();
+  const file = join(app.getPath("userData"), "launcher.json");
+  if (app.isPackaged || !isCheckout(root) || existsSync(file)) return;
+  execFile(process.platform === "win32" ? "where" : "which", ["node"], { windowsHide: true }, (err, out) => {
+    const node = out?.split(/\r?\n/)[0]?.trim();
+    if (err || !node) return;
+    try {
+      writeFileSync(file, JSON.stringify({ node, script: join(root, "scripts", "launch.cjs"), root }, null, 2));
+    } catch { /* the Farm tab then asks to start OPF from its icon */ }
+  });
+}
+
 app.whenReady().then(() => {
+  recordLauncher();
   const updates = watchForUpdates();
   host = startHost({ dataDir: app.getPath("userData"), factory, uiRoot: join(__dirname, "../renderer"), updates });
   farm = host.farm;
