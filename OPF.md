@@ -25,6 +25,16 @@ Prepare and Preview are OrcaSlicer's own and are kept close to upstream so its u
 - **Edit** on a queued plate in the Farm tab downloads that plate's project
   (`GET /api/v1/ui/plates/<id>/project`) and opens it in Prepare. Sending it again replaces the plate
   in its place in the queue.
+- **Looks like OPF**: the name people see is OPF (`SLIC3R_APP_FULL_NAME`; `SLIC3R_APP_NAME` and
+  `SLIC3R_APP_KEY` stay OrcaSlicer, so settings, presets and files are where they were). OrcaSlicer's
+  logo files keep their names and hold OPF's empty-shelf logo and loading screen. The accent colour
+  is Bambu green, `#00AE42`, with its hover, pressed and light shades, in place of OrcaSlicer's
+  teal; the swap was made with a script over `src/slic3r`, `resources/images` and `resources/web`,
+  so after merging OrcaSlicer, new teal can be swapped the same way. The About box keeps the credit
+  to OrcaSlicer, PrusaSlicer and BambuStudio that their licence asks for.
+- **One window, no save questions**: `single_instance` is on (once, over a saved "false"), and
+  `save_project_choise` defaults to "no", so a new or another project never asks to save the open
+  one. Add plate and Edit from the Farm tab start from a clean project without asking.
 - **Windows build** (`.github/workflows/opf_windows.yml`): Windows x64 only, on every change to `main`.
   The installer and the portable folder are attached to each run under **Actions**.
 

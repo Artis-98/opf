@@ -189,8 +189,15 @@ void AppConfig::set_defaults()
             set_bool("use_retina_opengl", true);
 #endif
 
-        if (get("single_instance").empty())
-            set_bool("single_instance", false);
+        // OPF: one window; opening OPF again brings it forward. Once, also over OrcaSlicer's saved
+        // "false", and after that as chosen in Preferences.
+        if (get("single_instance").empty() || get("opf_single_instance").empty()) {
+            set_bool("single_instance", true);
+            set("opf_single_instance", "1");
+        }
+        // OPF: do not ask to save the project before a new or another one; File > Save is there.
+        if (get("save_project_choise").empty())
+            set("save_project_choise", "no");
 
 #ifdef SUPPORT_REMEMBER_OUTPUT_PATH
         if (get("remember_output_path").empty())

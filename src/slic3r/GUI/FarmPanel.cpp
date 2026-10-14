@@ -133,7 +133,7 @@ void FarmPanel::show_not_running(bool starting)
         "background:%s;color:%s}"
         "main{max-width:460px;text-align:center;padding:24px}h1{font-size:20px;margin:0 0 10px}"
         "p{line-height:1.5;margin:0 0 16px;color:%s}small{color:%s}"
-        "a{display:inline-block;padding:8px 16px;border-radius:7px;background:#009688;color:#fff;text-decoration:none;font-weight:600}"
+        "a{display:inline-block;padding:8px 16px;border-radius:7px;background:#00AE42;color:#fff;text-decoration:none;font-weight:600}"
         "</style></head><body><main><h1>%s</h1><p>%s</p><p><a href='%s'>%s</a></p><small>%s</small></main>"
         "<script>setTimeout(function(){location.href='%s';},%d);</script></body></html>",
         dark ? "#2d2d31" : "#ffffff", dark ? "#efeff0" : "#262e30", dark ? "#b8b8bc" : "#5c6466", dark ? "#8a8a8f" : "#8a9194",

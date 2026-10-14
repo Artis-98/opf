@@ -289,7 +289,7 @@ void DesignTextDialog::draw_preview(wxWindow* canvas)
                 path.AddLineToPoint(ox + k * (c[i].x() - lo_x), oy - k * (c[i].y() - lo_y));
             path.CloseSubpath();
         }
-    gc->SetBrush(wxBrush(wxColour(0x00, 0x96, 0x88)));   // Orca accent
+    gc->SetBrush(wxBrush(wxColour(0x00, 0xAE, 0x42)));   // Orca accent
     gc->SetPen(*wxTRANSPARENT_PEN);
     gc->FillPath(path, wxODDEVEN_RULE);                    // holes (the counter of an "o") stay open
 }

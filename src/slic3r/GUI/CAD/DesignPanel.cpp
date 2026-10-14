@@ -463,7 +463,7 @@ DesignPanel::DesignPanel(wxWindow* parent)
             b->SetBackgroundColour(b == m_active_tool_btn ? wxColour(0x52, 0xC7, 0xB8) : dp_ribbon_hover());
             b->Refresh(); e.Skip(); });
         b->Bind(wxEVT_LEAVE_WINDOW, [this, b](wxMouseEvent& e) {
-            b->SetBackgroundColour(b == m_active_tool_btn ? wxColour(0x00, 0x96, 0x88) : dp_ribbon_bg());
+            b->SetBackgroundColour(b == m_active_tool_btn ? wxColour(0x00, 0xAE, 0x42) : dp_ribbon_bg());
             b->Refresh(); e.Skip(); });
         // Mark this tool active (teal) on press — a separate event from the
         // button's command handler, so it never swallows the click action.
@@ -4468,7 +4468,7 @@ void DesignPanel::set_active_tool_btn(ScalableButton* b)
     // Onshape-style: the active tool's button gets the Orca accent (teal); the
     // rest revert to the ribbon surface. nullptr clears the whole strip.
     m_active_tool_btn = b;
-    const wxColour bg = dp_ribbon_bg(), teal(0x00, 0x96, 0x88);
+    const wxColour bg = dp_ribbon_bg(), teal(0x00, 0xAE, 0x42);
     for (auto* btn : m_tool_btns) {
         if (btn == nullptr) continue;
         btn->SetBackgroundColour(btn == b ? teal : bg);

@@ -85,7 +85,7 @@ body
       SwitchDarkMode() injects from the app theme, so the two can disagree.----*/
 :root
 {
-	--row-hover            : #BFE1DE;
+	--row-hover            : #C2EBD1;
 	--warn-color           : #F07E4A;
 	--account-avatar-bg    : #E6EBEA;
 	--account-avatar-glyph : #9AA5A3;
@@ -590,8 +590,8 @@ body
 
 .MenuItem:hover
 {
-	border-color: #009688;		/*ORCA color*/
-	background-color: #E5F0EE; /*ORCA color with %25 opacity*/
+	border-color: #00AE42;		/*ORCA color*/
+	background-color: #E5F5EB; /*ORCA color with %25 opacity*/
 }
 
 .MenuIcon
@@ -774,7 +774,7 @@ body
 	font-size: 10px;
 	font-weight: 600;
 	color: #FFFFFF;
-	background-color: #009688;
+	background-color: #00AE42;
 	border-radius: 2px;
 	white-space: nowrap;
 }
@@ -811,7 +811,7 @@ body
 .CT_Item:hover
 {
 	cursor: pointer;
-	background-color:#009688; /*ORCA color*/
+	background-color:#00AE42; /*ORCA color*/
 	border-radius: 4px;
 	color: #fff;
 }
@@ -1047,7 +1047,7 @@ body
 #HotModel_RIGHT_Title:hover
 {
 	cursor: pointer;	
-	color:#009688;	
+	color:#00AE42;	
 }
 
 .HotModelPiece

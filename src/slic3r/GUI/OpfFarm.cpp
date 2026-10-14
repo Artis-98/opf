@@ -180,9 +180,9 @@ wxString OpfFarm::send_label() const
 void OpfFarm::new_plate(const std::string& printer, const std::string& name, const std::string& machine)
 {
     Plater* plater = wxGetApp().plater();
-    // Start from an empty plate. Plater asks whether to save the open project first; Cancel keeps it.
-    if (!plater->model().objects.empty() && plater->new_project() == wxID_CANCEL)
-        return;
+    // Start from an empty plate, without asking about the one before: it went to the farm, or can be
+    // saved with File > Save first.
+    plater->new_project(true, true);
     m_editing_job.clear();
     m_editing_path.clear();
     set_target(printer, name);
@@ -229,8 +229,10 @@ void OpfFarm::edit_plate(const std::string& job, const std::string& name, int pl
 void OpfFarm::open_project(const std::string& job, const fs::path& path, int plate)
 {
     Plater* plater = wxGetApp().plater();
+    // As for a new plate: no questions about what was open.
+    plater->new_project(true, true);
     plater->load_project(from_path(path), "<loadall>");
-    // Still the old project: the user kept it when asked about saving it.
+    // Not opened: the file could not be read.
     if (!same_file(into_path(plater->get_project_filename(".3mf")), path))
         return;
     m_editing_job  = job;
