@@ -25,6 +25,7 @@
 #include "slic3r/GUI/CalibrationPanel.hpp"
 #include "slic3r/GUI/ReleaseNote.hpp"
 #include "slic3r/GUI/GUI.hpp"
+#include "slic3r/GUI/OpfFarm.hpp"
 #include <vector>
 #include "libslic3r/PublishSettings.hpp"
 #include "libslic3r/Config.hpp"
@@ -1158,10 +1159,13 @@ void MainFrame::update_layout()
     case ESettingsLayout::Old:
     {
         m_plater->Reparent(m_tabpanel);
-        // Right after Home — or first, when there is no Home tab (PositionAfter() would
-        // append instead, and by now the other built-in tabs are already in place).
-        const int home_idx = m_tabpanel->FindPageByName(TAB_ID_HOME);
-        size_t prepare_pos = (home_idx == wxNOT_FOUND) ? 0 : static_cast<size_t>(home_idx) + 1;
+        // OPF: after Farm and Timeline. (Orca: right after Home — or first, when there is no Home tab;
+        // PositionAfter() would append instead, and by now the other built-in tabs are already in place.)
+        int before_idx = m_tabpanel->FindPageByName(TAB_ID_TIMELINE);
+        for (const char* id : {TAB_ID_FARM, TAB_ID_HOME})
+            if (before_idx == wxNOT_FOUND)
+                before_idx = m_tabpanel->FindPageByName(id);
+        size_t prepare_pos = (before_idx == wxNOT_FOUND) ? 0 : static_cast<size_t>(before_idx) + 1;
 #ifdef SLIC3R_CAD
         // Design sits between Home and Prepare, so it goes in first and pushes Prepare along.
         // The page only exists when the experimental CAD feature is enabled.
@@ -1494,7 +1498,7 @@ void MainFrame::init_tabpanel() {
             select_tab(TAB_ID_HOME);
             WebViewPanel::ensure()->load_url(url);
         });
-        m_tabpanel->AddPage(TAB_ID_HOME, m_home_page, "", "tab_home_active");
+        // OPF: no Home tab. The Farm tab is the start page.
         m_param_panel = new ParamsPanel(m_tabpanel, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxBK_LEFT | wxTAB_TRAVERSAL);
     }
 
@@ -1520,9 +1524,10 @@ void MainFrame::init_tabpanel() {
     create_preset_tabs();
 
         //BBS add pages
+    // OPF: the Device, Multi-device, Project and Calibration pages are made but never put on the tab bar
+    // (see show_device()): the farm, in the Farm tab, watches and drives the printers.
     m_monitor_page = new LazyPage<MonitorPanel>(m_tabpanel, TAB_ID_MONITOR, 20);
     m_lazy_pages.push_back(m_monitor_page);
-    m_tabpanel->AddPage(TAB_ID_MONITOR, m_monitor_page, _L("Device"), "tab_monitor_active");
 
     m_printer_view_page = new LazyPage<PrinterWebView>(m_tabpanel, TAB_ID_MONITOR_WEB, 50, [this](wxWindow* parent) {
         auto* view = new PrinterWebView(parent);
@@ -1541,26 +1546,21 @@ void MainFrame::init_tabpanel() {
 
     m_multi_machine_page = new LazyPage<MultiMachinePage>(m_tabpanel, TAB_ID_MULTI_DEVICE, 40);
     m_lazy_pages.push_back(m_multi_machine_page);
-    if (wxGetApp().is_enable_multi_machine()) {
-        // TODO: change the bitmap
-        m_tabpanel->AddPage(TAB_ID_MULTI_DEVICE, m_multi_machine_page, _L("Multi-device"), "tab_multi_active");
-    }
 
-    // OPF: the Farm tab, before Project. show_device() inserts the Device tabs after Preview, so it stays
-    // after them. Order 70: prebuilt last, after the built-in pages.
-    m_farm_page = new LazyPage<FarmPanel>(m_tabpanel, TAB_ID_FARM, 70);
+    // OPF: Farm and Timeline come first; update_layout() puts Prepare and Preview after them. Order 5:
+    // the Farm tab is the start page, so it is built first.
+    m_farm_page = new LazyPage<FarmPanel>(m_tabpanel, TAB_ID_FARM, 5, [](wxWindow* parent) { return new FarmPanel(parent, "farm"); });
     m_lazy_pages.push_back(m_farm_page);
     m_tabpanel->AddPage(TAB_ID_FARM, m_farm_page, _L("Farm"), "tab_farm_active");
+    m_timeline_page = new LazyPage<FarmPanel>(m_tabpanel, TAB_ID_TIMELINE, 70, [](wxWindow* parent) { return new FarmPanel(parent, "timeline"); });
+    m_lazy_pages.push_back(m_timeline_page);
+    m_tabpanel->AddPage(TAB_ID_TIMELINE, m_timeline_page, _L("Timeline"), "tab_timeline_active");
 
     m_project_page = new LazyPage<ProjectPanel>(m_tabpanel, TAB_ID_PROJECT, 60);
     m_lazy_pages.push_back(m_project_page);
-    m_tabpanel->AddPage(TAB_ID_PROJECT, m_project_page, _L("Project"), "tab_auxiliary_active");
 
-    // show_device() removes this tab for printers without the Bambu device tab, and the page
-    // then never builds its panel.
     m_calibration_page = new LazyPage<CalibrationPanel>(m_tabpanel, TAB_ID_CALIBRATION, 30);
     m_lazy_pages.push_back(m_calibration_page);
-    m_tabpanel->AddPage(TAB_ID_CALIBRATION, m_calibration_page, _L("Calibration"), "tab_calibration_active");
 
     // Plugin pages are appended after the built-in tabs; their ids are namespaced
     // (plugin.<plugin_key>.<name>) so they can't collide with the built-in TAB_ID_* constants.
@@ -1582,6 +1582,10 @@ void MainFrame::init_tabpanel() {
 
 // SoftFever
 void MainFrame::show_device(bool should_use_native) {
+    // OPF: no Device, Multi-device or Calibration tabs, whichever printer is selected (see init_tabpanel()).
+    fit_tab_labels();
+    return;
+
     auto idx = -1;
 
     const bool use_printer_agents = wxGetApp().app_config->get_bool("use_printer_agents");
@@ -2116,6 +2120,7 @@ const char* print_select_type_key(MainFrame::PrintSelectType type)
     case MainFrame::eSendToPrinter:       return "send_to_printer";
     case MainFrame::eSendToPrinterAll:    return "send_to_printer_all";
     case MainFrame::ePrintMultiMachine:   return "print_multi_machine";
+    case MainFrame::eSendToFarm:          return "send_to_farm";
     case MainFrame::eUploadGcode:         break; // Orca: no dropdown entry, never selectable
     }
     return "";
@@ -2134,6 +2139,7 @@ wxString print_select_type_label(MainFrame::PrintSelectType type)
     case MainFrame::eSendToPrinter:       return _L("Send");
     case MainFrame::eSendToPrinterAll:    return _L("Send all");
     case MainFrame::ePrintMultiMachine:   return _L("Send to Multi-device");
+    case MainFrame::eSendToFarm:          return OpfFarm::get().send_label();
     case MainFrame::eUploadGcode:         break; // Orca: no dropdown entry, never selectable
     }
     return _L("Print plate");
@@ -2142,7 +2148,8 @@ wxString print_select_type_label(MainFrame::PrintSelectType type)
 
 std::vector<MainFrame::PrintSelectType> MainFrame::available_print_actions() const
 {
-    std::vector<PrintSelectType> actions;
+    // OPF: Send to farm first, for every printer.
+    std::vector<PrintSelectType> actions{eSendToFarm};
     const auto preset_bundle      = wxGetApp().preset_bundle;
     const bool use_printer_agents = wxGetApp().app_config->get_bool("use_printer_agents");
 
@@ -2228,7 +2235,7 @@ wxBoxSizer* MainFrame::create_side_tools()
     wxBoxSizer* sizer = new wxBoxSizer(wxHORIZONTAL);
 
     m_slice_select = eSlicePlate;
-    m_print_select = ePrintPlate;
+    m_print_select = eSendToFarm; // OPF
 
     auto slice_panel = new wxPanel(this,wxID_ANY,wxDefaultPosition,wxDefaultSize);
     auto print_panel = new wxPanel(this,wxID_ANY,wxDefaultPosition,wxDefaultSize);
@@ -2237,7 +2244,7 @@ wxBoxSizer* MainFrame::create_side_tools()
 
     m_slice_btn = new SideButton(slice_panel, _L("Slice plate"), "");
     m_slice_option_btn = new SideButton(slice_panel, "", "sidebutton_dropdown", 0, 14);
-    m_print_btn = new SideButton(print_panel, _L("Print plate"), "");
+    m_print_btn = new SideButton(print_panel, print_select_type_label(eSendToFarm), "");
     m_print_option_btn = new SideButton(print_panel, "", "sidebutton_dropdown", 0, 14);
 
     // Orca: restore the last used print/export action if the user opted to remember it
@@ -2337,7 +2344,14 @@ wxBoxSizer* MainFrame::create_side_tools()
     m_print_btn->Bind(wxEVT_BUTTON, [this](wxCommandEvent& event)
         {
             //this->m_plater->select_view_3D("Preview");
-            if (m_print_select == ePrintAll || m_print_select == ePrintPlate || m_print_select == ePrintMultiMachine)
+            if (m_print_select == eSendToFarm) {
+                m_plater->apply_background_progress();
+                m_print_enable = get_enable_print_status();
+                m_print_btn->Enable(m_print_enable);
+                if (m_print_enable)
+                    OpfFarm::get().send_current_plate();
+            }
+            else if (m_print_select == ePrintAll || m_print_select == ePrintPlate || m_print_select == ePrintMultiMachine)
             {
                 m_plater->apply_background_progress();
                 // check valid of print
@@ -2570,6 +2584,10 @@ bool MainFrame::get_enable_print_status()
             enable = false;
         }
         enable = enable && !is_all_plates;
+    }
+    else if (m_print_select == eSendToFarm)
+    {
+        enable = current_plate->is_slice_result_ready_for_print() && !is_all_plates;
     }
 
     BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << boost::format(": m_print_select %1%, enable= %2% ")%m_print_select %enable;
@@ -4352,6 +4370,9 @@ void MainFrame::on_config_changed(DynamicPrintConfig* config) const
 
 void MainFrame::set_print_button_to_default(PrintSelectType select_type)
 {
+    // OPF: plates go to the farm; the printer's own actions stay in the dropdown.
+    select_type = eSendToFarm;
+
     // Orca: keep the user's remembered print/export action instead of resetting it to the computed
     // default. get_remembered_print_select() already rejects anything this printer does not offer.
     PrintSelectType remembered;
@@ -4368,6 +4389,21 @@ void MainFrame::set_print_button_to_default(PrintSelectType select_type)
         m_print_enable = get_enable_print_status();
     m_print_btn->Enable(m_print_enable);
     this->Layout();
+}
+
+void MainFrame::refresh_send_to_farm()
+{
+    if (m_print_select != eSendToFarm || m_print_btn == nullptr)
+        return;
+    m_print_btn->SetLabel(print_select_type_label(eSendToFarm));
+    Layout();
+    fit_tab_labels();
+}
+
+void MainFrame::run_farm_script(const wxString& javascript)
+{
+    if (FarmPanel* farm = m_farm_page ? m_farm_page->get() : nullptr)
+        farm->run_script(javascript);
 }
 
 void MainFrame::add_to_recent_projects(const wxString& filename)

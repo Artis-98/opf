@@ -1,10 +1,10 @@
 #ifndef slic3r_FarmPanel_hpp_
 #define slic3r_FarmPanel_hpp_
 
+#include <string>
+
 #include <wx/panel.h>
 #include <wx/string.h>
-
-#include "Lazy.hpp"
 
 class wxWebView;
 class wxWebViewEvent;
@@ -12,28 +12,30 @@ class wxWebViewEvent;
 namespace Slic3r {
 namespace GUI {
 
-// OPF: the Farm tab. Shows the OPF farm service running on this computer (the printers on their
-// shelves, each printer's queue, the timeline) as a web page. The service is a separate program
-// (https://github.com/Artis-98/opf); while it is not running the tab says so and keeps retrying.
-// The address can be changed with the "opf_farm_url" app config key.
-class FarmPanel : public wxPanel, public LazyInstance<FarmPanel>
+// OPF: the Farm and Timeline tabs. Each shows one view of the OPF farm service's web page (the
+// printers on their shelves with their queues, or the timeline); see OpfFarm. While the service is
+// not answering, the tab starts it if it can, says so, and keeps retrying.
+class FarmPanel : public wxPanel
 {
 public:
-    explicit FarmPanel(wxWindow* parent);
+    // view: "farm" or "timeline".
+    FarmPanel(wxWindow* parent, std::string view);
     ~FarmPanel() override;
 
     bool Show(bool show = true) override;
     void reload();
-
-    static wxString farm_url();
+    void run_script(const wxString& javascript);
 
 private:
     void on_error(wxWebViewEvent& evt);
+    void on_navigating(wxWebViewEvent& evt);
     void on_new_window(wxWebViewEvent& evt);
-    void show_not_running();
+    void on_script_message(wxWebViewEvent& evt);
+    void show_not_running(bool starting);
 
-    wxWebView* m_browser{nullptr};
-    bool       m_loaded{false};
+    std::string m_view;
+    wxWebView*  m_browser{nullptr};
+    bool        m_loaded{false};
 };
 
 } // namespace GUI

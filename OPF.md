@@ -1,21 +1,40 @@
 # OPF Slicer
 
-This is OrcaSlicer with a **Farm** tab, made for [OPF (Open Print Farm)](https://github.com/Artis-98/opf).
-Everything else is OrcaSlicer, kept close to upstream so its updates can be merged.
+This is OrcaSlicer made into the slicer of [OPF (Open Print Farm)](https://github.com/Artis-98/opf).
+Prepare and Preview are OrcaSlicer's own and are kept close to upstream so its updates can be merged.
 
 ## What is different
 
-- **Farm tab** (`src/slic3r/GUI/FarmPanel.*`, added in `MainFrame::init_tabpanel`): shows the OPF farm
-  service running on this computer, `http://127.0.0.1:7878/` (or the `opf_farm_url` app config
-  value). While OPF is not running it says so and keeps trying.
+- **Four tabs: Farm, Timeline, Prepare, Preview.** Farm is the start page. Home, Device,
+  Multi-device, Project and Calibration are not on the tab bar: the farm watches and drives the
+  printers (`MainFrame::init_tabpanel`, `MainFrame::show_device`). Their pages are still made, so
+  code that refers to them keeps working; they are never shown or built.
+- **Farm and Timeline** (`src/slic3r/GUI/FarmPanel.*`) show the OPF farm service's web page,
+  `http://127.0.0.1:7878/` (or the `opf_farm_url` app config value), with `?embed=farm` or
+  `?embed=timeline` so the page shows that one view. When OPF is not answering, the tab starts it
+  in the background through the launcher whose location OPF writes to `launcher.json` in its
+  settings folder (`%APPDATA%\OPF` on Windows), says so, and keeps retrying.
+- **Send to farm** (`src/slic3r/GUI/OpfFarm.*`) is the print button's default action. It sends the
+  current plate, sliced (`.gcode.3mf`, as Export plate sliced file writes it), together with a copy of
+  the project to `POST /api/v1/ui/plates`. It goes to the printer chosen in the Farm tab, or OPF
+  picks one.
+- **Edit** on a queued plate in the Farm tab downloads that plate's project
+  (`GET /api/v1/ui/plates/<id>/project`) and opens it in Prepare. Sending it again replaces the plate
+  in its place in the queue.
 - **Windows build** (`.github/workflows/opf_windows.yml`): Windows x64 only, on every change to `main`.
   The installer and the portable folder are attached to each run under **Actions**.
 
-## Sending plates to the farm
+## The farm page and the slicer
 
-OPF answers like an OctoPrint print host. In a printer's connection settings choose OctoPrint and use
-the address OPF shows in that printer's settings (`http://127.0.0.1:7878/octo/<printer id>`). For a
-Bambu Lab printer, tick "Use 3rd-party print host" in the printer settings first.
+The page talks to the slicer with `window.wx.postMessage(JSON.stringify(message))`:
+
+| `command`        | Fields                         | What the slicer does                                    |
+|------------------|--------------------------------|---------------------------------------------------------|
+| `opf_target`     | `printer`, `name`              | Send to farm goes to this printer; the button names it. |
+| `opf_new_plate`  | `printer`, `name`, `machine`   | New project in Prepare, with that printer profile.      |
+| `opf_edit_plate` | `job`, `name`, `plate`         | Opens the plate's project in Prepare.                   |
+
+After a plate is sent the slicer shows the Farm tab and calls `window.opfShowJob(<job id>)`.
 
 ## Keeping up with OrcaSlicer
 

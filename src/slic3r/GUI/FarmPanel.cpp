@@ -1,6 +1,7 @@
 #include "FarmPanel.hpp"
 
 #include <string>
+#include <utility>
 
 #include <boost/log/trivial.hpp>
 #include <wx/sizer.h>
@@ -10,14 +11,12 @@
 #include "GUI.hpp"
 #include "GUI_App.hpp"
 #include "I18N.hpp"
+#include "OpfFarm.hpp"
 #include "format.hpp"
-#include "libslic3r/AppConfig.hpp"
 #include "Widgets/WebView.hpp"
 
 namespace Slic3r {
 namespace GUI {
-
-static const char* DEFAULT_FARM_URL = "http://127.0.0.1:7878/";
 
 static wxString html_escape(const wxString& s)
 {
@@ -34,12 +33,15 @@ static wxString html_escape(const wxString& s)
     return out;
 }
 
-FarmPanel::FarmPanel(wxWindow* parent) : wxPanel(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize)
+FarmPanel::FarmPanel(wxWindow* parent, std::string view)
+    : wxPanel(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize), m_view(std::move(view))
 {
     auto* sizer = new wxBoxSizer(wxVERTICAL);
     m_browser   = WebView::CreateWebView(this, "");
     m_browser->Bind(wxEVT_WEBVIEW_ERROR, &FarmPanel::on_error, this);
+    m_browser->Bind(wxEVT_WEBVIEW_NAVIGATING, &FarmPanel::on_navigating, this);
     m_browser->Bind(wxEVT_WEBVIEW_NEWWINDOW, &FarmPanel::on_new_window, this);
+    m_browser->Bind(wxEVT_WEBVIEW_SCRIPT_MESSAGE_RECEIVED, &FarmPanel::on_script_message, this);
     sizer->Add(m_browser, wxSizerFlags().Expand().Proportion(1));
     SetSizer(sizer);
 }
@@ -53,25 +55,24 @@ FarmPanel::~FarmPanel()
     }
 }
 
-wxString FarmPanel::farm_url()
-{
-    const std::string url = wxGetApp().app_config->get("opf_farm_url");
-    return from_u8(url.empty() ? std::string(DEFAULT_FARM_URL) : url);
-}
-
 bool FarmPanel::Show(bool show)
 {
     // Load on first show: the farm page keeps itself up to date after that.
     if (show && !m_loaded) {
         m_loaded = true;
-        WebView::LoadUrl(m_browser, farm_url());
+        WebView::LoadUrl(m_browser, OpfFarm::page_url(m_view));
     }
     return wxPanel::Show(show);
 }
 
 void FarmPanel::reload()
 {
-    WebView::LoadUrl(m_browser, farm_url());
+    WebView::LoadUrl(m_browser, OpfFarm::page_url(m_view));
+}
+
+void FarmPanel::run_script(const wxString& javascript)
+{
+    WebView::RunScript(m_browser, javascript);
 }
 
 void FarmPanel::on_error(wxWebViewEvent& evt)
@@ -79,8 +80,27 @@ void FarmPanel::on_error(wxWebViewEvent& evt)
     if (evt.GetInt() == wxWEBVIEW_NAV_ERR_USER_CANCELLED)
         return;
     BOOST_LOG_TRIVIAL(info) << "Farm tab: could not load " << into_u8(evt.GetURL()) << ": " << into_u8(evt.GetString());
+    // Start OPF when it is set up on this computer, then keep trying until it answers.
+    const bool starting = OpfFarm::get().start_service();
     // Not from inside the browser's own event: replace the page once it has finished reporting.
-    CallAfter([this] { show_not_running(); });
+    CallAfter([this, starting] { show_not_running(starting); });
+}
+
+// The tab stays on the farm page: other addresses open in the default browser.
+void FarmPanel::on_navigating(wxWebViewEvent& evt)
+{
+    const wxString url = evt.GetURL();
+    if ((url.StartsWith("http://") || url.StartsWith("https://")) && !url.StartsWith(OpfFarm::farm_url())) {
+        evt.Veto();
+        wxLaunchDefaultBrowser(url);
+    }
+}
+
+void FarmPanel::on_script_message(wxWebViewEvent& evt)
+{
+    // Only the farm page talks to the slicer.
+    if (m_browser->GetCurrentURL().StartsWith(OpfFarm::farm_url()))
+        OpfFarm::get().on_page_message(evt.GetString());
 }
 
 void FarmPanel::on_new_window(wxWebViewEvent& evt)
@@ -92,17 +112,18 @@ void FarmPanel::on_new_window(wxWebViewEvent& evt)
 }
 
 // Shown while the OPF farm service is not answering. It retries on its own, so the farm appears as
-// soon as OPF is started.
-void FarmPanel::show_not_running()
+// soon as OPF is up.
+void FarmPanel::show_not_running(bool starting)
 {
     const bool     dark  = wxGetApp().dark_mode();
-    const wxString url   = farm_url();
-    const wxString title = html_escape(_L("OPF is not running"));
-    const wxString body  = html_escape(_L("The Farm tab shows your printers on their shelves, each printer's queue and the timeline from OPF. "
-                                          "Start OPF from its desktop icon and the farm appears here."));
+    const wxString url   = OpfFarm::page_url(m_view);
+    const wxString title = html_escape(starting ? _L("Starting OPF...") : _L("OPF is not running"));
+    const wxString body  = html_escape(starting ? _L("OPF checks for a new version and starts. Your printers appear here in a moment.") :
+                                                  _L("The Farm tab shows your printers on their shelves, each printer's queue and the timeline from OPF. "
+                                                     "Start OPF from its desktop icon and the farm appears here."));
     const wxString retry = html_escape(_L("Try again"));
     // TRN: %1% is a web address such as http://127.0.0.1:7878/
-    const wxString where = html_escape(format_wxstr(_L("Looking for OPF at %1%"), url));
+    const wxString where = html_escape(format_wxstr(_L("Looking for OPF at %1%"), OpfFarm::farm_url()));
 
     const wxString html = wxString::Format(
         "<!doctype html><html><head><meta charset='utf-8'><style>"
@@ -112,9 +133,9 @@ void FarmPanel::show_not_running()
         "p{line-height:1.5;margin:0 0 16px;color:%s}small{color:%s}"
         "a{display:inline-block;padding:8px 16px;border-radius:7px;background:#009688;color:#fff;text-decoration:none;font-weight:600}"
         "</style></head><body><main><h1>%s</h1><p>%s</p><p><a href='%s'>%s</a></p><small>%s</small></main>"
-        "<script>setTimeout(function(){location.href='%s';},5000);</script></body></html>",
+        "<script>setTimeout(function(){location.href='%s';},%d);</script></body></html>",
         dark ? "#2d2d31" : "#ffffff", dark ? "#efeff0" : "#262e30", dark ? "#b8b8bc" : "#5c6466", dark ? "#8a8a8f" : "#8a9194",
-        title, body, html_escape(url), retry, where, html_escape(url));
+        title, body, html_escape(url), retry, where, html_escape(url), starting ? 3000 : 5000);
     m_browser->SetPage(html, "");
 }
 

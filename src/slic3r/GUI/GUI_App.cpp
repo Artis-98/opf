@@ -3592,7 +3592,7 @@ bool GUI_App::on_init_inner()
         if (starts_on_prepare()) {
             mainframe->select_tab(TAB_ID_PREPARE);
         } else {
-            mainframe->select_tab(TAB_ID_HOME);
+            mainframe->select_tab(TAB_ID_FARM); // OPF: the farm is the start page
         }
     }
 

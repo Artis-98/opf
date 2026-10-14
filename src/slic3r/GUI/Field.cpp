@@ -378,7 +378,8 @@ void Field::PostInitialize()
 			    default: break;
 			    }
 			    if (tab_id >= 0) {
-					static constexpr const char* kShortcutTabIds[] = {TAB_ID_HOME, TAB_ID_PREPARE, TAB_ID_PREVIEW, TAB_ID_MONITOR};
+					// OPF: the four tabs, in order
+					static constexpr const char* kShortcutTabIds[] = {TAB_ID_FARM, TAB_ID_TIMELINE, TAB_ID_PREPARE, TAB_ID_PREVIEW};
 					wxGetApp().mainframe->select_tab(kShortcutTabIds[tab_id]);
 				}
 				if (tab_id > 0)

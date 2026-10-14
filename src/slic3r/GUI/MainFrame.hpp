@@ -68,8 +68,9 @@
 #define TAB_ID_MULTI_DEVICE  "multi_device"
 #define TAB_ID_PROJECT       "project"
 #define TAB_ID_CALIBRATION   "calibration"
-// OPF: the farm (printers on shelves, their queues, the timeline) from the OPF farm service
+// OPF: the farm (printers on shelves with their queues) and its timeline, from the OPF farm service
 #define TAB_ID_FARM          "farm"
+#define TAB_ID_TIMELINE      "timeline"
 
 #define ENABEL_PRINT_ALL 0
 
@@ -355,7 +356,8 @@ public:
         eSendToPrinterAll    = 6,
         eUploadGcode         = 7,
         eExportAllSlicedFile = 8,
-        ePrintMultiMachine   = 9
+        ePrintMultiMachine   = 9,
+        eSendToFarm          = 10 // OPF
     };
 
     void update_layout();
@@ -446,6 +448,9 @@ public:
     // Propagate changed configuration from the Tab to the Plater and save changes to the AppConfig
     void        on_config_changed(DynamicPrintConfig* cfg) const ;
     void        set_print_button_to_default(PrintSelectType select_type);
+    // OPF: the Send to farm label names the printer chosen in the Farm tab.
+    void        refresh_send_to_farm();
+    void        run_farm_script(const wxString& javascript);
     // Orca: the print/export actions the current printer offers, in the order the dropdown lists them.
     // The dropdown is built from this, and a remembered action is only restored if it appears here.
     std::vector<PrintSelectType> available_print_actions() const;
@@ -527,6 +532,7 @@ public:
     LazyPage<WebViewPanel>* m_home_page { nullptr };
     LazyPage<PrinterWebView>* m_printer_view_page{nullptr};
     LazyPage<FarmPanel>* m_farm_page{nullptr};
+    LazyPage<FarmPanel>* m_timeline_page{nullptr};
     PluginPages           m_plugin_pages;
     wxLogWindow*          m_log_window { nullptr };
     // BBS
