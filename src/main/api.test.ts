@@ -1,4 +1,8 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, describe, expect, it } from "vitest";
+import { mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { strToU8, zipSync } from "fflate";
 import type { AddressInfo } from "node:net";
 import type { Server } from "node:http";
 import { emptyFarm, FarmService } from "../core/farm";
@@ -6,6 +10,13 @@ import { SimulatedPrinter } from "../core/simulator";
 import { startApi } from "./api";
 
 let server: Server | null = null;
+const tmp = mkdtempSync(join(tmpdir(), "opf-api-"));
+const uploads = join(tmp, "uploads");
+const uiRoot = join(tmp, "ui");
+mkdirSync(join(uiRoot, "assets"), { recursive: true });
+writeFileSync(join(uiRoot, "index.html"), "<!doctype html><title>OPF</title>");
+writeFileSync(join(uiRoot, "assets", "app.js"), "console.log(1)");
+afterAll(() => rmSync(tmp, { recursive: true, force: true }));
 let farm: FarmService;
 
 function setup(token = "secret") {
@@ -13,7 +24,17 @@ function setup(token = "secret") {
   data.settings.api = { enabled: true, port: 0, token };
   farm = new FarmService(data, (cfg, emit) => new SimulatedPrinter(cfg, emit, { status: "idle" }), { persist: () => {}, slicer: () => ({ found: false, name: null, path: null }) });
   farm.start();
-  server = startApi(farm)!;
+  server = startApi(farm, {
+    uploads,
+    uiRoot,
+    act: async (name, args) => {
+      try {
+        return { ok: true, value: await farm.act(name, args) };
+      } catch (e) {
+        return { ok: false, error: (e as Error).message };
+      }
+    },
+  })!;
   return new Promise<string>((r) => server!.on("listening", () => r(`http://127.0.0.1:${(server!.address() as AddressInfo).port}/api/v1`)));
 }
 
@@ -65,5 +86,86 @@ describe("local API", () => {
     farm.removeInbox(farm.view().data.inbox[0].id);
     expect(farm.receive("admin.iiteg.com", [item])).toBe(0);
     expect(farm.view().data.inbox).toEqual([]);
+  });
+
+  /* ---- slicers sending plates, the way OrcaSlicer's OctoPrint host does ---- */
+
+  const sliced = (secs: number, grams: number) => zipSync({
+    "Metadata/slice_info.config": strToU8(`<config><plate><metadata key="index" value="1"/><metadata key="prediction" value="${secs}"/><metadata key="weight" value="${grams}"/><filament id="1" type="PLA" color="#161616" used_g="${grams}"/></plate></config>`),
+    "Metadata/plate_1.gcode": strToU8("G28"),
+    "Metadata/plate_1.png": new Uint8Array([137, 80, 78, 71]),
+  });
+
+  function upload(base: string, file: Uint8Array, name: string, print = false, headers: Record<string, string> = {}) {
+    const form = new FormData();
+    form.append("print", print ? "true" : "false");
+    form.append("path", "");
+    form.append("file", new Blob([new Uint8Array(file)]), name);
+    return fetch(`${base}/api/files/local`, { method: "POST", body: form, headers });
+  }
+
+  it("answers OrcaSlicer's connection test like OctoPrint", async () => {
+    const base = (await setup()).replace("/api/v1", "");
+    const v = (await (await fetch(`${base}/api/version`)).json()) as { api: string; text: string };
+    expect(v.api).toBeTruthy();
+    expect(v.text.startsWith("OctoPrint")).toBe(true);
+  });
+
+  it("puts a plate sent to /octo/<printer> into that printer's queue, with time, grams and picture", async () => {
+    const base = (await setup()).replace("/api/v1", "");
+    const a = farm.addPrinter({ name: "A1", model: "Bambu Lab A1", driver: "simulator" });
+    const res = await upload(`${base}/octo/${a}`, sliced(5400, 42), "Bracket_x4.gcode.3mf");
+    expect(res.status).toBe(201);
+    expect(((await res.json()) as { done: boolean }).done).toBe(true);
+    const q = farm.view().data.queues[a];
+    expect(q).toHaveLength(1);
+    expect(q[0]).toMatchObject({ name: "Bracket x4", minutes: 90, grams: 42, source: "slicer", plate: 1 });
+    expect(q[0].thumbnail).toMatch(/^data:image\/png/);
+    expect(readdirSync(uploads).some((f) => f.endsWith("Bracket_x4.gcode.3mf"))).toBe(true);
+  });
+
+  it("chooses a printer for a plate sent to the farm's own address", async () => {
+    const base = (await setup()).replace("/api/v1", "");
+    const busy = farm.addPrinter({ name: "Busy", model: "m", driver: "simulator" });
+    const free = farm.addPrinter({ name: "Free", model: "m", driver: "simulator" });
+    farm.enqueue(busy, { name: "long", ref: null, minutes: 600, grams: 1, filaments: [], file: null, thumbnail: null, source: "estimate" });
+    await new Promise((r) => setTimeout(r, 50));
+    const res = await upload(base, sliced(600, 5), "clip.gcode.3mf");
+    expect(((await res.json()) as { opf: { printer: string } }).opf.printer).toBe(free);
+  });
+
+  it("starts the plate at once on 'Upload and print' when the printer is free", async () => {
+    const base = (await setup()).replace("/api/v1", "");
+    const a = farm.addPrinter({ name: "A1", model: "m", driver: "simulator" });
+    await new Promise((r) => setTimeout(r, 50));
+    await upload(`${base}/octo/${a}`, sliced(60, 1), "now.gcode.3mf", true);
+    expect(farm.view().data.current[a]?.name).toBe("now");
+  });
+
+  it("refuses an unsliced file and an unknown printer", async () => {
+    const base = (await setup()).replace("/api/v1", "");
+    farm.addPrinter({ name: "A1", model: "m", driver: "simulator" });
+    const bad = await upload(base, zipSync({ "3D/3dmodel.model": strToU8("<model/>") }), "raw.3mf");
+    expect(bad.status).toBe(400);
+    expect(((await bad.json()) as { error: string }).error).toMatch(/not been sliced/);
+    expect((await upload(`${base}/octo/nope`, sliced(60, 1), "x.gcode.3mf")).status).toBe(404);
+  });
+
+  it("serves the farm page and its live data to this computer", async () => {
+    const base = (await setup()).replace("/api/v1", "");
+    const a = farm.addPrinter({ name: "A1", model: "m", driver: "simulator" });
+    expect(await (await fetch(`${base}/`)).text()).toContain("<title>OPF</title>");
+    expect(await (await fetch(`${base}/octo/${a}/`)).text()).toContain("<title>OPF</title>");
+    expect(await (await fetch(`${base}/octo/${a}/assets/app.js`)).text()).toContain("console.log");
+    // Paths that try to climb out of the app folder get the page, never the file.
+    for (const p of ["/..%2f..%2f..%2fetc%2fpasswd", "/assets/..%2f..%2f..%2fetc/passwd"]) {
+      expect(await (await fetch(`${base}${p}`)).text()).not.toContain("root:");
+    }
+    const snap = (await (await fetch(`${base}/api/v1/ui/snapshot`)).json()) as { data: { printers: unknown[] } };
+    expect(snap.data.printers).toHaveLength(1);
+    const act = await fetch(`${base}/api/v1/ui/act`, { method: "POST", body: JSON.stringify({ name: "addShelf", args: ["Wall"] }) });
+    expect(((await act.json()) as { ok: boolean }).ok).toBe(true);
+    const bad = await fetch(`${base}/api/v1/ui/act`, { method: "POST", body: JSON.stringify({ name: "shutdown", args: [] }) });
+    expect(((await bad.json()) as { ok: boolean; error: string })).toMatchObject({ ok: false });
   });
 });

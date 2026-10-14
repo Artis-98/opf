@@ -22,6 +22,17 @@ function Dialog({ title, onClose, children, footer }: { title: string; onClose: 
   );
 }
 
+/** An address to paste into OrcaSlicer, with a Copy button. */
+function SlicerAddress({ url }: { url: string }) {
+  const { toast } = useFarm();
+  return (
+    <div className="secret">
+      <input className="input mono" readOnly value={url} aria-label="Address for OrcaSlicer" onFocus={(e) => e.target.select()} />
+      <button className="btn" onClick={() => navigator.clipboard.writeText(url).then(() => toast("Address copied"), () => toast("Select the address and copy it", true))}>Copy</button>
+    </div>
+  );
+}
+
 const MODELS = [
   "Bambu Lab X1 Carbon", "Bambu Lab X1E", "Bambu Lab P1S", "Bambu Lab P1P", "Bambu Lab P2S", "Bambu Lab A1", "Bambu Lab A1 mini",
   "Bambu Lab H2D", "Bambu Lab H2S", "Prusa MK4S", "Prusa Core One", "Prusa XL", "Voron 2.4 350", "Creality K1",
@@ -98,6 +109,14 @@ export function PrinterDialog({ id, place, onClose, onSaved }: { id: string | nu
         </>
       )}
       <label className="check"><input type="checkbox" checked={f.enclosed !== false} onChange={(e) => set("enclosed", e.target.checked)} />Enclosed printer</label>
+
+      {existing && (
+        <>
+          <div className="section-title">Send plates from OrcaSlicer</div>
+          <span className="help muted">In OrcaSlicer, open this printer's connection settings (for Bambu printers, first tick "Use 3rd-party print host" in the printer settings), choose OctoPrint as the host type and paste this address. Plates you send land in {existing.name}'s queue, and its Device tab shows {existing.name} here.</span>
+          <SlicerAddress url={`http://127.0.0.1:${snap.data.settings.api.port}/octo/${existing.id}`} />
+        </>
+      )}
 
       <div className="section-title">Slicing profiles</div>
       <span className="help muted">In Bambu Studio or OrcaSlicer, pick this printer, your process and filament, then File → Export → Export Configs. Choose the exported files here.</span>
@@ -189,6 +208,10 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
         <input id="s-slicer" className="input" placeholder={snap.slicer.found ? snap.slicer.path ?? "" : "Found automatically when installed in the usual place"} value={s.slicerPath ?? ""} onChange={(e) => set("slicerPath", e.target.value || null)} />
         <span className="help">{snap.slicer.found ? `Using ${snap.slicer.name}: ${snap.slicer.path}` : opf.isDemo ? "The browser demo cannot run a slicer." : "No slicer found yet."}</span>
       </div>
+
+      <div className="section-title">Send plates from OrcaSlicer</div>
+      <span className="help muted">Set this address as an OctoPrint print host in OrcaSlicer and OPF puts each plate on the printer that can start it soonest with its filament loaded. For one particular printer, use the address in that printer's settings.</span>
+      <SlicerAddress url={`http://127.0.0.1:${s.api.port}`} />
 
       <div className="section-title">Receive work</div>
       <div className="fg">

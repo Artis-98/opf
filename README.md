@@ -64,7 +64,8 @@ Version 0.1, first build. Be clear about what has been checked where:
 | Scheduling, filament matching, estimates, farm actions, local API | Covered by tests (`npm test`) |
 | Bambu status (incl. AMS colours) | Parser tested against messages shaped like real X1C/P1 reports. **Not yet run against a real printer.** |
 | Bambu send and start (FTPS + `project_file`) | Written to the documented LAN protocol. **Not yet run against a real printer.** Needs Developer Mode on the printer. |
-| Slicing with Bambu Studio / OrcaSlicer | Runs the slicer's command line and reads `slice_info.config` (tested). **Not yet run with a real slicer install.** |
+| Plates sent from OrcaSlicer | Checked against OrcaSlicer 2.4.2: its OctoPrint upload format, and a plate it sliced read back into a queue (time, grams, colours) |
+| Slicing with Bambu Studio / OrcaSlicer from OPF's Prepare | Command line checked with OrcaSlicer 2.4.2 and its built-in A1 presets |
 | Klipper / Moonraker, PrusaLink, OctoPrint | Listed, not connected yet: they show as offline and keep their queue |
 
 The first job is to point it at a real Bambu printer and fix whatever the
@@ -147,6 +148,36 @@ OPF slices with your own slicer and your own settings. For each printer:
 
 OPF finds Bambu Studio or OrcaSlicer in their usual install folders, or set the
 path in Settings.
+
+## Sending plates from OrcaSlicer
+
+OPF answers like an OctoPrint printer, so OrcaSlicer (and Bambu Studio with a
+third-party print host, and PrusaSlicer) can send sliced plates straight into
+OPF's queues, and show the farm in its Device tab.
+
+1. In OPF, open a printer's settings and copy the address under **Send plates
+   from OrcaSlicer**, for example `http://127.0.0.1:7878/octo/p-1ikwceq6`.
+2. In OrcaSlicer, open that printer's connection settings. For a Bambu Lab
+   printer, first tick **Use 3rd-party print host** in the printer settings.
+   Host type **OctoPrint**, paste the address, **Test**.
+3. Slice and press **Send** (or **Upload and print**). The plate lands in that
+   printer's queue with OrcaSlicer's own time, weight, colours and picture.
+
+`http://127.0.0.1:7878` on its own (in **Settings → Send plates from
+OrcaSlicer**) puts each plate on whichever printer can start it soonest with its
+filament loaded.
+
+## Running OPF without a window
+
+For an always-on PC or a Raspberry Pi:
+
+```bash
+npm install
+npm run server            # this computer only
+node out/main/server.js --lan   # also phones and other PCs (they need the token)
+```
+
+The farm is kept in `~/.opf`. Open `http://127.0.0.1:7878/` in a browser.
 
 ## Sending work to OPF
 

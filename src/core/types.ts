@@ -89,8 +89,10 @@ export interface PlateJob {
   minutes: number;
   grams: number;
   filaments: JobFilament[];
-  /** Path to the sliced .gcode.3mf on disk, once sliced. */
+  /** Path to the sliced .gcode.3mf (or .gcode) on disk, once sliced. */
   file: string | null;
+  /** Which plate in a .gcode.3mf project to print, 1-based. Default 1. */
+  plate?: number;
   /** Top view of the plate as a data: URL. */
   thumbnail: string | null;
   /** Where the time and grams came from. An estimate is replaced when the plate is sliced. */

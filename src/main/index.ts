@@ -1,22 +1,20 @@
 import { app, BrowserWindow, dialog, ipcMain, shell } from "electron";
 import { readFile } from "node:fs/promises";
 import { basename, join } from "node:path";
-import { FarmService } from "../core/farm";
+import type { FarmService } from "../core/farm";
 import { demoFarm } from "../core/demo";
 import type { SimScenario } from "../core/simulator";
-import { schedulePrinter } from "../core/schedule";
 import type { DriverFactory } from "../core/driver";
 import type { Result, SliceRequest } from "../preload/api";
 import { makeDriverFactory } from "./drivers";
-import { findSlicer, slicePlate } from "./slicer";
-import { loadFarm, makeSaver } from "./store";
-import { startApi } from "./api";
-import { reportStatus, startInboxSource, stopInboxSource } from "./inbox-source";
+import { slicePlate } from "./slicer";
+import { startHost, type Host } from "./host";
 import { changesSinceLastRun, checkForUpdate, isCheckout, restartThroughLauncher, type Change, type UpdateState } from "./updater";
 import icon from "../../resources/icon.png?asset";
 
 let win: BrowserWindow | null = null;
 let farm: FarmService;
+let host: Host;
 let demoScenarios: Record<string, SimScenario> = {};
 
 // Simulated printers from "Try the demo farm" start mid-print, the way the demo shows them.
@@ -86,45 +84,12 @@ function watchForUpdates() {
 
 app.whenReady().then(() => {
   watchForUpdates();
-  const file = join(app.getPath("userData"), "farm.json");
-  const saver = makeSaver(file);
-  let slicer = findSlicer(null);
-  farm = new FarmService(loadFarm(file), factory, {
-    persist: (d) => saver.save(d),
-    slicer: () => slicer,
-  });
-  slicer = findSlicer(farm.settings.slicerPath);
-  farm.start();
+  host = startHost({ dataDir: app.getPath("userData"), factory, uiRoot: join(__dirname, "../renderer") });
+  farm = host.farm;
   farm.subscribe((s) => win?.webContents.send("opf:update", s));
 
-  let api = startApi(farm);
-  startInboxSource(farm);
-
   ipcMain.handle("opf:snapshot", () => farm.snapshot());
-
-  ipcMain.handle("opf:act", async (_e, name: string, args: unknown[]) => {
-    try {
-      const value = await farm.act(name, args);
-      if (name === "updateSettings") {
-        // Settings that change what runs in the background take effect at once.
-        slicer = findSlicer(farm.settings.slicerPath);
-        api?.close();
-        api = startApi(farm);
-        startInboxSource(farm);
-      }
-      if (name === "enqueue") {
-        const [printerId, job] = args as [string, { ref: string | null }];
-        const d = farm.view();
-        const { slots } = schedulePrinter(d.data.settings, d.live[printerId], d.data.current[printerId], d.data.queues[printerId] ?? []);
-        const slot = slots.find((s) => s.job.id === value);
-        const printer = d.data.printers.find((p) => p.id === printerId)?.name ?? printerId;
-        void reportStatus(farm, { ref: job.ref, status: "queued", printer, start: slot?.start.toISOString(), end: slot?.end.toISOString() });
-      }
-      return ok(value);
-    } catch (e) {
-      return fail(e);
-    }
-  });
+  ipcMain.handle("opf:act", (_e, name: string, args: unknown[]) => host.runAction(name, args));
 
   ipcMain.handle("opf:openModels", async () => {
     const r = await dialog.showOpenDialog(win!, {
@@ -150,7 +115,7 @@ app.whenReady().then(() => {
       const printer = farm.view().data.printers.find((p) => p.id === req.printerId);
       const result = await slicePlate(
         { name: req.name, objects: req.objects, profile: printer?.slicing ?? null },
-        slicer,
+        host.slicer(),
         join(app.getPath("userData"), "sliced"),
       );
       return ok(result);
@@ -167,12 +132,7 @@ app.whenReady().then(() => {
     farm.replaceData(d.data);
   });
 
-  app.on("before-quit", () => {
-    stopInboxSource();
-    api?.close();
-    farm.shutdown();
-    saver.flush();
-  });
+  app.on("before-quit", () => host.shutdown());
 
   createWindow();
   app.on("activate", () => {

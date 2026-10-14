@@ -45,4 +45,49 @@ function browserDemo(): OpfApi {
   };
 }
 
-export const opf: OpfApi = window.opf ?? browserDemo();
+/**
+ * The farm page served by OPF's own web server: in a browser, on a phone, or
+ * in OrcaSlicer's Device tab. It reads and changes the real farm over HTTP.
+ */
+function httpBridge(): OpfApi {
+  // Keeps ?token=… from the page's address, for opening the farm from another device.
+  const api = (p: string) => `${location.origin}/api/v1/ui/${p}${location.search}`;
+  const nope = async () => ({ ok: false as const, error: "Slice in OrcaSlicer and send the plate to OPF from there." });
+  return {
+    snapshot: async () => (await fetch(api("snapshot"))).json(),
+    act: async (name, ...args) => {
+      try {
+        const r = await fetch(api("act"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, args }) });
+        return await r.json();
+      } catch (e) {
+        return { ok: false, error: `OPF is not answering: ${(e as Error).message}` };
+      }
+    },
+    onUpdate: (cb) => {
+      const es = new EventSource(api("events"));
+      es.onmessage = (m) => cb(JSON.parse(m.data));
+      return () => es.close();
+    },
+    openModels: null,
+    pickProfile: null,
+    slice: nope,
+    loadDemo: async () => {
+      await fetch(api("act"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: "replaceData", args: [demoFarm().data] }) });
+    },
+    updateState: async () => null,
+    onUpdateReady: () => () => {},
+    whatsNew: async () => [],
+    restart: async () => {},
+    isDemo: false,
+  };
+}
+
+declare const __OPF_DEMO__: boolean;
+
+export const opf: OpfApi = window.opf ?? (__OPF_DEMO__ ? browserDemo() : httpBridge());
+
+/** In OrcaSlicer's Device tab for one printer (…/octo/<id>/), that printer. */
+export const printerFromAddress: string | null = (() => {
+  const m = /^\/octo\/([^/]+)/.exec(location.pathname);
+  return m ? decodeURIComponent(m[1]) : null;
+})();

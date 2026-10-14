@@ -9,9 +9,10 @@
 import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { unzipSync, strFromU8 } from "fflate";
 import type { JobFilament, SlicerInfo } from "../core/types";
+import { DENSITY } from "../core/estimate";
 
 const CANDIDATES: { name: string; paths: string[] }[] = [
   {
@@ -87,7 +88,8 @@ export async function slicePlate(req: SliceRequest, slicer: SlicerInfo, workRoot
     "--load-settings", `${req.profile.machine};${req.profile.process}`,
     "--load-filaments", req.profile.filaments.join(";"),
     "--outputdir", dir,
-    "--export-3mf", out,
+    // A name inside --outputdir: a full path here makes the slicer write to dir + path and fail.
+    "--export-3mf", basename(out),
     ...inputs,
   ];
 
@@ -126,13 +128,25 @@ export function parseSliceInfo(xml: string): Omit<SliceResult, "file"> {
   const weight = meta("weight");
   const filaments: JobFilament[] = [];
   for (const m of plate.matchAll(/<filament\s+([^>]*)\/?>/g)) {
-    const attr = (k: string) => new RegExp(`${k}="([^"]*)"`).exec(m[1])?.[1] ?? "";
-    filaments.push({ color: attr("color").toUpperCase() || "#808080", material: attr("type") || "PLA", grams: Math.round(parseFloat(attr("used_g")) || 0) });
+    const attr = (k: string) => new RegExp(`\\b${k}="([^"]*)"`).exec(m[1])?.[1] ?? "";
+    const material = attr("type") || "PLA";
+    // Some slicer versions leave used_g at 0 and only give the length; work the weight out from it.
+    let grams = parseFloat(attr("used_g")) || 0;
+    if (!grams) grams = gramsFromLength(parseFloat(attr("used_m")) || 0, material);
+    filaments.push({ color: attr("color").toUpperCase() || "#808080", material, grams: Math.round(grams * 10) / 10 });
   }
   if (!Number.isFinite(seconds)) throw new Error("The slicer did not report a print time.");
+  const total = Number.isFinite(weight) && weight > 0 ? weight : filaments.reduce((a, f) => a + f.grams, 0);
   return {
     minutes: Math.round(seconds / 60),
-    grams: Math.round(Number.isFinite(weight) ? weight : filaments.reduce((a, f) => a + f.grams, 0)),
-    filaments,
+    grams: Math.round(total),
+    filaments: filaments.map((f) => ({ ...f, grams: Math.round(f.grams) })),
   };
+}
+
+/** Metres of 1.75 mm filament → grams. */
+export function gramsFromLength(metres: number, material: string): number {
+  const fam = Object.keys(DENSITY).find((k) => material.toUpperCase().includes(k)) ?? "PLA";
+  const areaMm2 = Math.PI * 0.875 ** 2;
+  return ((metres * 1000 * areaMm2) / 1000) * DENSITY[fam];
 }

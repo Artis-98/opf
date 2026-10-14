@@ -43,4 +43,11 @@ describe("slice info", () => {
   it("refuses slice info without a time", () => {
     expect(() => parseSliceInfo("<config><plate></plate></config>")).toThrow(/print time/);
   });
+
+  it("works out grams from length when the slicer leaves the weight empty (OrcaSlicer 2.4 command line)", () => {
+    const orca = `<config><plate><metadata key="index" value="1"/><metadata key="prediction" value="2303"/><metadata key="weight" value=""/>
+      <filament id="1" tray_info_idx="" type="PLA" color="#F2754E" used_m="1.38" used_g="0.00" group_id="0"/></plate></config>`;
+    // 1.38 m of 1.75 mm PLA ≈ 3.3 cm³ ≈ 4.1 g
+    expect(parseSliceInfo(orca)).toEqual({ minutes: 38, grams: 4, filaments: [{ color: "#F2754E", material: "PLA", grams: 4 }] });
+  });
 });

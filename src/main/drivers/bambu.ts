@@ -96,7 +96,7 @@ export class BambuDriver implements PrinterDriver {
   async start(job: PlateJob) {
     if (!job.file) throw new Error("Slice this plate before sending it.");
     const { host, accessCode } = this.cfg;
-    const remote = `opf-${job.id}.gcode.3mf`.replace(/[^A-Za-z0-9._-]/g, "_");
+    const remote = `opf-${job.id}${/\.gcode$/i.test(job.file) ? ".gcode" : ".gcode.3mf"}`.replace(/[^A-Za-z0-9._-]/g, "_");
 
     // Work out which AMS slot feeds each filament before uploading anything.
     const live = this.live as LiveState;
@@ -119,9 +119,14 @@ export class BambuDriver implements PrinterDriver {
       ftp.close();
     }
 
+    if (/\.gcode$/i.test(job.file)) {
+      // Plain G-code (from a slicer that does not write .gcode.3mf): the printer runs the file as it is.
+      this.command("gcode_file", { param: `/sdcard/${remote}` });
+      return;
+    }
     const md5 = await fileMd5(job.file);
     this.command("project_file", {
-      param: "Metadata/plate_1.gcode",
+      param: `Metadata/plate_${job.plate ?? 1}.gcode`,
       project_id: "0",
       profile_id: "0",
       task_id: "0",

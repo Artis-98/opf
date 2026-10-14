@@ -35,6 +35,21 @@ changed, build, open). An open OPF checks GitHub every 3 minutes and offers
   `src/core/farm.ts`).
 - They test on simulated A1 / A1 mini printers (Settings → Test printers).
 
+## OrcaSlicer
+
+The plan (owner's choice, Oct 2026) is an OrcaSlicer fork with OPF's farm as a
+tab. Until then, OPF speaks enough OctoPrint (`/api/version`,
+`/api/files/local`, also under `/octo/<printer id>/`) that stock OrcaSlicer
+sends plates into OPF and shows the farm page in its Device tab; see
+`src/main/api.ts`. Learned from OrcaSlicer 2.4.2 itself (Linux AppImage from
+its GitHub releases, run under `xvfb-run`, needs libopengl0 + libglu1-mesa):
+
+- `--export-3mf` takes a file name inside `--outputdir`, not a path.
+- The command line accepts the built-in system presets directly
+  (`resources/profiles/BBL/{machine,process,filament}/*.json`, with `inherits`).
+- `slice_info.config` from the command line may have an empty `weight` and
+  `used_g="0.00"`; OPF works grams out from `used_m`.
+
 ## Running the real Electron app in a cloud session
 
 `ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm install` skips the binary; `node node_modules/electron/install.js` fetches it.

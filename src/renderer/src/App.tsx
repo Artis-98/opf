@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { FarmProvider, useFarm, useFarmMaybe } from "./state";
-import { opf } from "./bridge";
+import { opf, printerFromAddress } from "./bridge";
 import { displayStatus, FarmView } from "./views/Farm";
 import { TimelineView } from "./views/Timeline";
 import { emptyPrep, newPlate, PrepareView, type PrepState } from "./views/Prepare";
@@ -38,7 +38,7 @@ function Loaded() {
 function Shell() {
   const { snap, toast } = useFarm();
   const [view, setView] = useState<View>("farm");
-  const [sel, setSel] = useState<string | null>(null);
+  const [sel, setSel] = useState<string | null>(printerFromAddress);
   const [prep, setPrepState] = useState<PrepState>(() => emptyPrep(null));
   const [printerDialog, setPrinterDialog] = useState<{ id: string | null; place?: { shelfId: string; slot: number } } | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
