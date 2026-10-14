@@ -53,5 +53,7 @@ export interface OpfApi {
   whatsNew(): Promise<Change[]>;
   /** Close, update through the launcher, and open again. */
   restart(): Promise<void>;
+  /** From the small OPF by the clock: open the full OPF (OPF Slicer, or the farm window). */
+  openFull?: () => Promise<void>;
   isDemo: boolean;
 }

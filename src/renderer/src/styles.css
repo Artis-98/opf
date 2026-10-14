@@ -324,3 +324,23 @@ button.slot-empty:hover { border-color: var(--grey); color: var(--fg-2); }
 .changes { margin: 0; padding: 0; list-style: none; display: grid; gap: 10px; }
 .changes li { display: grid; gap: 3px; padding: 10px 12px; border-radius: 9px; background: var(--panel-2); }
 .changes li span { color: var(--fg-2); font-size: 13px; line-height: 1.45; }
+
+/* ---------- the small OPF by the clock ---------- */
+.mini { height: 100%; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; background: var(--bg); }
+.mini-head { display: flex; align-items: center; gap: 8px; padding: 10px 12px; background: var(--panel); border-bottom: 1px solid var(--line); -webkit-app-region: drag; }
+.mini-head .brand { padding: 0; }
+.mini-head .sum { margin-left: auto; font-size: 12.5px; color: var(--fg-2); }
+.mini-list { overflow: auto; padding: 8px; display: grid; gap: 6px; align-content: start; }
+.mini-p { display: grid; gap: 6px; padding: 9px 11px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; }
+.mini-p.s-error { border-color: var(--err); }
+.mini-p.s-finished, .mini-p.s-paused { border-color: var(--warn); }
+.mini-p .top { display: flex; align-items: center; gap: 8px; }
+.mini-p .top b { font-size: 13.5px; }
+.mini-p .top .q { font-size: 11.5px; color: var(--muted); }
+.mini-p .top .pill { margin-left: auto; }
+.mini-p .line { font-size: 12.5px; color: var(--fg-2); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mini-p .line.err { color: var(--err); white-space: normal; }
+.mini-p .time { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 11.5px; color: var(--fg-2); }
+.mini-p .row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.mini-foot { display: flex; gap: 8px; padding: 10px 12px; background: var(--panel); border-top: 1px solid var(--line); }
+.mini-foot .btn { flex: 1; }

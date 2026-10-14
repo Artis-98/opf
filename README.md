@@ -160,10 +160,19 @@ farm; Prepare and Preview are OrcaSlicer's own.
 - **Edit** on a plate in a queue opens its project in Prepare. Sending it again
   replaces the plate in its place in the queue.
 - One program: once OPF Slicer has been opened, OPF's desktop icon opens OPF
-  Slicer, with the farm running in the background (a tray icon shows it is
-  there; it also opens the farm window). OPF Slicer also starts the farm by
-  itself when it is not running. `OPF.bat --window` opens the farm window
-  instead, as before.
+  Slicer, with the farm running in the background. OPF Slicer also starts the
+  farm by itself when it is not running. `OPF.bat --window` opens the farm
+  window instead, as before.
+
+## The small OPF by the clock
+
+While OPF runs, its icon sits next to the clock. Click it for every printer at a
+glance (time left, finished, errors) with the buttons needed at the printer:
+**Bed is clear, start next**, **Start**, **Resume**. **Open OPF** opens the full
+OPF. When a print finishes or a printer needs you, a notification says so. It
+starts with Windows (untick **Start OPF with Windows** in its right-click menu
+to stop that), and closing OPF Slicer or the farm window leaves it running;
+**Quit OPF** in that menu stops it.
 
 ## Sending plates from OrcaSlicer
 

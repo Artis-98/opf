@@ -1,6 +1,6 @@
-import { app, BrowserWindow, dialog, ipcMain, Menu, shell, Tray } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, shell } from "electron";
 import { execFile, spawn } from "node:child_process";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, writeFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 import type { FarmService } from "../core/farm";
@@ -13,13 +13,15 @@ import { slicePlate } from "./slicer";
 import { startHost, type Host } from "./host";
 import type { UpdateHooks } from "./api";
 import { changesSinceLastRun, checkForUpdate, isCheckout, restartThroughLauncher, type Change, type UpdateState } from "./updater";
+import { slicerExe, startMini, type Mini } from "./mini";
 import icon from "../../resources/icon.png?asset";
 
 let win: BrowserWindow | null = null;
-let tray: Tray | null = null;
+let mini: Mini | null = null;
 let farm: FarmService;
-// Started by OPF Slicer (launch.cjs --background): no window, just the farm, its web page and a tray
-// icon. Closing a window opened from there leaves the farm running for the slicer.
+// Started without a window (launch.cjs --background, by OPF Slicer, the desktop icon or Windows
+// starting): the farm, its web page, and the small OPF by the clock. Closing OPF's window, or OPF
+// Slicer, leaves the farm running there; its menu quits OPF.
 const background = process.argv.includes("--background");
 let host: Host;
 let demoScenarios: Record<string, SimScenario> = {};
@@ -58,28 +60,16 @@ function createWindow() {
   win.on("closed", () => (win = null));
 }
 
-/** OPF Slicer, once it has said where it is (it writes slicer.json in OPF's settings folder). */
-function slicerExe(): string | null {
-  try {
-    const { exe } = JSON.parse(readFileSync(join(app.getPath("userData"), "slicer.json"), "utf8")) as { exe?: unknown };
-    return typeof exe === "string" && existsSync(exe) ? exe : null;
-  } catch {
-    return null;
-  }
+/** The full OPF: OPF Slicer once it is known, otherwise OPF's own farm window. */
+function openFull() {
+  const slicer = slicerExe();
+  if (slicer) spawn(slicer, [], { cwd: dirname(slicer), detached: true, stdio: "ignore" }).unref();
+  else showWindow();
 }
 
-/** In the background, a tray icon says OPF is running and opens or quits it. */
-function createTray() {
-  tray = new Tray(icon);
-  tray.setToolTip("OPF is running for OPF Slicer");
-  const slicer = slicerExe();
-  tray.setContextMenu(Menu.buildFromTemplate([
-    ...(slicer ? [{ label: "Open OPF Slicer", click: () => spawn(slicer, [], { cwd: dirname(slicer), detached: true, stdio: "ignore" }).unref() }] : []),
-    { label: "Open the farm window", click: showWindow },
-    { type: "separator" },
-    { label: "Quit OPF", click: () => app.quit() },
-  ]));
-  tray.on("click", showWindow);
+/** To every OPF window: the farm window and the small one by the clock. */
+function broadcast(channel: string, value: unknown) {
+  for (const w of BrowserWindow.getAllWindows()) w.webContents.send(channel, value);
 }
 
 // One OPF at a time. A second start (say, the desktop icon while OPF is open) brings the window
@@ -107,8 +97,8 @@ function watchForUpdates(): UpdateHooks {
     },
     restart: () => {
       if (!enabled) return;
-      // Stays in the background when that is where it runs: no window has been opened.
-      restartThroughLauncher(root, background && !win);
+      // Without its window when none is open: the small OPF by the clock comes back by itself.
+      restartThroughLauncher(root, !win);
       app.quit();
     },
   };
@@ -121,7 +111,7 @@ function watchForUpdates(): UpdateHooks {
     checkForUpdate(root).then(
       (s) => {
         state = s;
-        if (s) win?.webContents.send("opf:updateReady", s);
+        if (s) broadcast("opf:updateReady", s);
       },
       () => { /* offline: try again later */ },
     );
@@ -152,7 +142,7 @@ app.whenReady().then(() => {
   const updates = watchForUpdates();
   host = startHost({ dataDir: app.getPath("userData"), factory, uiRoot: join(__dirname, "../renderer"), updates });
   farm = host.farm;
-  farm.subscribe((s) => win?.webContents.send("opf:update", s));
+  farm.subscribe((s) => broadcast("opf:update", s));
 
   ipcMain.handle("opf:snapshot", () => farm.snapshot());
   ipcMain.handle("opf:act", (_e, name: string, args: unknown[]) => host.runAction(name, args));
@@ -200,12 +190,25 @@ app.whenReady().then(() => {
 
   app.on("before-quit", () => host.shutdown());
 
-  if (background) createTray();
-  else createWindow();
+  mini = startMini(farm, {
+    icon,
+    preload: join(__dirname, "../preload/index.js"),
+    page: { url: process.env.ELECTRON_RENDERER_URL, file: join(__dirname, "../renderer/index.html") },
+    openFull,
+    openWindow: showWindow,
+    hasSlicer: () => slicerExe() !== null,
+  });
+  ipcMain.handle("opf:openFull", () => {
+    mini?.hidePopup();
+    openFull();
+  });
+
+  if (!background) createWindow();
   app.on("activate", showWindow);
 });
 
 app.on("window-all-closed", () => {
-  // In the background the farm keeps running for OPF Slicer; the tray icon quits it.
-  if (process.platform !== "darwin" && !background) app.quit();
+  // The farm keeps running in the small OPF by the clock; its menu quits OPF. Linux desktops do not
+  // all show tray icons, so there closing the window quits, unless OPF started without one.
+  if (process.platform === "linux" && !background) app.quit();
 });

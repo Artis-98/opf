@@ -124,6 +124,9 @@ const params = new URLSearchParams(location.search);
 /** In OPF Slicer's Farm or Timeline tab (…/?embed=farm): the page shows only that view. */
 export const embedded: "farm" | "timeline" | null = ((v) => (v === "farm" || v === "timeline" ? v : null))(params.get("embed"));
 
+/** The small OPF that opens from its icon by the clock (…/index.html?mini=1). */
+export const mini = params.get("mini") === "1";
+
 /** The slicer's light or dark look, when the page is in it. */
 export const slicerTheme: string | null = embedded ? params.get("theme") : null;
 

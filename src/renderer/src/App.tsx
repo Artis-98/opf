@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { FarmProvider, useFarm, useFarmMaybe } from "./state";
-import { embedded, opf, printerFromAddress, slicerTheme, toSlicer } from "./bridge";
+import { embedded, mini, opf, printerFromAddress, slicerTheme, toSlicer } from "./bridge";
+import { MiniView } from "./views/Mini";
 import { displayStatus, FarmView } from "./views/Farm";
 import { TimelineView } from "./views/Timeline";
 import { emptyPrep, newPlate, PrepareView, type PrepState } from "./views/Prepare";
@@ -40,7 +41,7 @@ export default function App() {
 function Loaded() {
   const ctx = useFarmMaybe();
   if (!ctx?.snap) return <div className="welcome"><p>Starting OPF…</p></div>;
-  return <Shell />;
+  return mini ? <MiniView /> : <Shell />;
 }
 
 function Shell() {

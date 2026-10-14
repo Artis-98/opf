@@ -48,7 +48,10 @@ does not answer, the slicer runs `launch.cjs --background` through
 icon, and closing a window opened later keeps it running. The slicer writes
 `slicer.json` there too, and from then on OPF.bat (the desktop icon) starts the
 farm in the background and opens the slicer instead of OPF's window
-(`--window` for the window). Changing these
+(`--window` for the window). The tray icon is always there while OPF runs
+(`src/main/mini.ts`): a popup (`?mini=1`, `views/Mini.tsx`), notifications from
+`farmNews()` in `src/core/status.ts`, and a login item so it starts with
+Windows. Changing these
 messages or endpoints needs the fork changed too, and a slicer build takes about
 an hour, so keep them backward compatible.
 

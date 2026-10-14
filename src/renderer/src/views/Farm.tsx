@@ -4,21 +4,13 @@ import { opf } from "../bridge";
 import { schedulePrinter, type Slot } from "../../../core/schedule";
 import { matchFilaments } from "../../../core/filament";
 import { wrongPrinter } from "../../../core/assign";
-import type { InboxItem, LiveState, PlateJob, PrinterConfig, PrinterStatus, Snapshot } from "../../../core/types";
+import type { InboxItem, PlateJob, PrinterConfig, PrinterStatus, Snapshot } from "../../../core/types";
 import { PlateThumb, PrinterArt } from "../components/PrinterArt";
 import { Icon } from "../components/icons";
 import { clock, dur, hms, shortDate } from "../format";
 
-export const STATUS_LABEL: Record<PrinterStatus, string> = {
-  printing: "Printing", preparing: "Heating", idle: "Idle", paused: "Paused", error: "Error", finished: "Finished", offline: "Offline",
-};
-
-/** A plate still on the bed counts as finished even if the printer itself says idle. */
-export function displayStatus(live: LiveState | undefined, current: PlateJob | null): PrinterStatus {
-  const s = live?.status ?? "offline";
-  if (current && s === "idle") return "finished";
-  return s;
-}
+export { displayStatus, STATUS_LABEL } from "../../../core/status";
+import { displayStatus, STATUS_LABEL } from "../../../core/status";
 
 export function schedule(snap: Snapshot, id: string, now: Date): Slot[] {
   return schedulePrinter(snap.data.settings, snap.live[id], snap.data.current[id], snap.data.queues[id] ?? [], now).slots;
