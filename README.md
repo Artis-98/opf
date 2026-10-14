@@ -79,6 +79,14 @@ npm install
 npm run dev          # the desktop app, with live reload
 ```
 
+On Windows, if PowerShell says *running scripts is disabled on this system*,
+type `npm.cmd` instead of `npm`, or allow local scripts once with
+`Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`.
+
+`npm run dev` downloads Electron itself the first time if npm skipped that
+step (newer npm versions hold back install scripts until approved, which
+otherwise ends in "Error: Electron uninstall").
+
 Try it in a browser with simulated printers, no Electron needed:
 
 ```bash

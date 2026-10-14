@@ -9,6 +9,8 @@
   "main": "out/main/index.js",
   "private": true,
   "scripts": {
+    "postinstall": "node scripts/ensure-electron.cjs",
+    "predev": "node scripts/ensure-electron.cjs",
     "dev": "electron-vite dev",
     "build": "electron-vite build",
     "demo": "vite --config vite.demo.config.ts",
