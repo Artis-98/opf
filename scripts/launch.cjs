@@ -34,12 +34,28 @@ function sleep(ms) {
   Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 }
 
+// npm install may rewrite package-lock.json (another npm version writes it a
+// little differently). Nobody edits it by hand here, and a changed copy would
+// stop git pull from ever updating OPF again, so it is put back.
+function restoreLock() {
+  if (capture("git", ["status", "--porcelain", "--", "package-lock.json"])) {
+    run("git", ["checkout", "--", "package-lock.json"], { stdio: "ignore" });
+  }
+}
+
+let updateFailed = false;
+
 function update() {
   if (!fs.existsSync(path.join(root, ".git"))) return;
   say("Checking for a new version of OPF…");
+  restoreLock();
   const before = capture("git", ["rev-parse", "HEAD"]);
   if (!run("git", ["pull", "--ff-only", "--quiet"], { stdio: ["ignore", "ignore", "inherit"] })) {
-    say("Could not get the new version (offline, or files here were changed). Starting the version you have.");
+    const changed = capture("git", ["status", "--short", "--untracked-files=no"]);
+    say(changed
+      ? `Could not get the new version, because these files in the OPF folder were changed:\n${changed}\nStarting the version you have.`
+      : "Could not get the new version (offline?). Starting the version you have.");
+    updateFailed = true;
     return;
   }
   const after = capture("git", ["rev-parse", "HEAD"]);
@@ -63,6 +79,7 @@ function installIfNeeded() {
   if (have === want && fs.existsSync(path.join(root, "node_modules", "electron-vite"))) return true;
   say("Installing what this version needs (a minute or two)…");
   if (!run(win ? "npm.cmd" : "npm", ["install", "--no-audit", "--no-fund"])) return false;
+  restoreLock();
   fs.writeFileSync(marker, want);
   return true;
 }
@@ -113,7 +130,7 @@ try {
   if (!build()) throw new Error("Building OPF failed.");
   desktopShortcut();
   if (!args.has("--no-start")) start();
-  sleep(1500);
+  sleep(updateFailed ? 10000 : 1500); // long enough to read why it did not update
 } catch (e) {
   console.error(`\n${e.message}`);
   process.exit(1);
