@@ -9,6 +9,8 @@ import type { FarmData, LiveState, PlateJob, PrinterConfig } from "./types";
 
 // One machine under two names: their plates are interchangeable.
 const SAME_MACHINE = [["Bambu Lab X1 Carbon", "Bambu Lab X1"], ["Bambu Lab P1S", "Bambu Lab P1P"]];
+// Makers whose slicer profiles name the printer the way OPF's model list does.
+const KNOWN_MAKERS = ["Bambu Lab ", "Anycubic "];
 
 function machine(model: string) {
   const m = model.trim().toLowerCase();
@@ -16,13 +18,14 @@ function machine(model: string) {
 }
 
 /**
- * Why a plate must not go to a printer: it was sliced for another Bambu Lab model, so its G-code
- * is for another bed, height and start sequence. Null when it fits, or when OPF cannot tell (not a
- * Bambu Lab printer, or the file does not say what it was sliced for).
+ * Why a plate must not go to a printer: it was sliced for another model, so its G-code is for
+ * another bed, height and start sequence. Null when it fits, or when OPF cannot tell (a printer
+ * not named the way the slicers name it, or a file that does not say what it was sliced for).
  */
 export function wrongPrinter(job: Pick<PlateJob, "name" | "slicedFor">, printer: Pick<PrinterConfig, "name" | "model">): string | null {
   const sliced = job.slicedFor?.trim() ?? "", model = printer.model?.trim() ?? "";
-  if (!sliced.startsWith("Bambu Lab ") || !model.startsWith("Bambu Lab ")) return null;
+  const known = (m: string) => KNOWN_MAKERS.some((maker) => m.startsWith(maker));
+  if (!known(sliced) || !known(model)) return null;
   if (machine(sliced) === machine(model)) return null;
   return `${job.name} was sliced for a ${sliced}, but ${printer.name} is a ${model}. Slice it again for the ${model}.`;
 }

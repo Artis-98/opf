@@ -24,8 +24,8 @@ describe("slice info", () => {
       minutes: 92,
       grams: 38,
       filaments: [
-        { color: "#161616", material: "PLA", grams: 35 },
-        { color: "#FFFFFF", material: "PLA", grams: 3 },
+        { color: "#161616", material: "PLA", grams: 35, index: 0 },
+        { color: "#FFFFFF", material: "PLA", grams: 3, index: 1 },
       ],
     });
   });
@@ -48,6 +48,6 @@ describe("slice info", () => {
     const orca = `<config><plate><metadata key="index" value="1"/><metadata key="prediction" value="2303"/><metadata key="weight" value=""/>
       <filament id="1" tray_info_idx="" type="PLA" color="#F2754E" used_m="1.38" used_g="0.00" group_id="0"/></plate></config>`;
     // 1.38 m of 1.75 mm PLA ≈ 3.3 cm³ ≈ 4.1 g
-    expect(parseSliceInfo(orca)).toEqual({ minutes: 38, grams: 4, filaments: [{ color: "#F2754E", material: "PLA", grams: 4 }] });
+    expect(parseSliceInfo(orca)).toEqual({ minutes: 38, grams: 4, filaments: [{ color: "#F2754E", material: "PLA", grams: 4, index: 0 }] });
   });
 });

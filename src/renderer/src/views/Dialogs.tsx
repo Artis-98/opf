@@ -35,11 +35,13 @@ function SlicerAddress({ url }: { url: string }) {
 
 const MODELS = [
   "Bambu Lab X1 Carbon", "Bambu Lab X1E", "Bambu Lab P1S", "Bambu Lab P1P", "Bambu Lab P2S", "Bambu Lab A1", "Bambu Lab A1 mini",
-  "Bambu Lab H2D", "Bambu Lab H2S", "Prusa MK4S", "Prusa Core One", "Prusa XL", "Voron 2.4 350", "Creality K1",
+  "Bambu Lab H2D", "Bambu Lab H2S", "Anycubic Kobra 3 Max", "Anycubic Kobra 3", "Anycubic Kobra 3 V2", "Anycubic Kobra S1",
+  "Anycubic Kobra S1 Max", "Prusa MK4S", "Prusa Core One", "Prusa XL", "Voron 2.4 350", "Creality K1",
 ];
 
 const DRIVERS: { kind: DriverKind; label: string; ready: boolean }[] = [
   { kind: "bambu", label: "Bambu Lab, local network", ready: true },
+  { kind: "anycubic", label: "Anycubic Kobra 3 / S1, local network (LAN mode)", ready: true },
   { kind: "simulator", label: "Simulated printer (for trying OPF)", ready: true },
   { kind: "moonraker", label: "Klipper / Moonraker (coming)", ready: false },
   { kind: "prusalink", label: "PrusaLink (coming)", ready: false },
@@ -64,6 +66,7 @@ export function PrinterDialog({ id, place, onClose, onSaved }: { id: string | nu
   const save = async () => {
     if (!f.name.trim()) return toast("Give the printer a name.", true);
     if (f.driver === "bambu" && (!f.host?.trim() || !f.serial?.trim() || !f.accessCode?.trim())) return toast("A Bambu printer needs its IP address, serial number and access code.", true);
+    if (f.driver === "anycubic" && !f.host?.trim()) return toast("An Anycubic printer needs its IP address.", true);
     const clean = { ...f, name: f.name.trim(), host: f.host?.trim(), serial: f.serial?.trim().toUpperCase(), accessCode: f.accessCode?.trim(), slicing: slicing.machine && slicing.process && slicing.filaments.length ? slicing : null };
     if (existing) {
       await act("updatePrinter", existing.id, clean);
@@ -92,7 +95,11 @@ export function PrinterDialog({ id, place, onClose, onSaved }: { id: string | nu
       </div>
       <div className="fg">
         <label htmlFor="p-driver">Connection</label>
-        <select id="p-driver" className="input" value={f.driver} onChange={(e) => set("driver", e.target.value as DriverKind)}>
+        <select id="p-driver" className="input" value={f.driver} onChange={(e) => {
+          const driver = e.target.value as DriverKind;
+          // Choosing the Anycubic connection on a new printer: it is most likely a Kobra 3 Max.
+          setF((x) => ({ ...x, driver, ...(driver === "anycubic" && !existing && !x.model.startsWith("Anycubic") ? { model: "Anycubic Kobra 3 Max", enclosed: false } : {}) }));
+        }}>
           {DRIVERS.map((d) => <option key={d.kind} value={d.kind}>{d.label}</option>)}
         </select>
         {!DRIVERS.find((d) => d.kind === f.driver)?.ready && <span className="help">OPF cannot talk to these yet. The printer shows as offline and its queue is kept.</span>}
@@ -107,6 +114,11 @@ export function PrinterDialog({ id, place, onClose, onSaved }: { id: string | nu
             <span className="help">All three are on the printer's screen: Settings → Network (IP, access code) and Settings → Device (serial). Reading status works in LAN mode. To start and stop prints from OPF, also turn on Developer Mode in the printer's LAN settings.</span>
           </div>
         </>
+      )}
+      {f.driver === "anycubic" && (
+        <div className="fg"><label htmlFor="p-host">IP address</label><input id="p-host" className="input mono" placeholder="192.168.1.42" value={f.host ?? ""} onChange={(e) => set("host", e.target.value)} />
+          <span className="help">On the printer, turn on LAN mode in its network settings, and read its IP address there. LAN mode disconnects it from the Anycubic app and cloud. OPF reads status, the ACE colours and starts, pauses and stops prints; starting prints is new, so watch the first one.</span>
+        </div>
       )}
       <label className="check"><input type="checkbox" checked={f.enclosed !== false} onChange={(e) => set("enclosed", e.target.checked)} />Enclosed printer</label>
 

@@ -1,6 +1,6 @@
 /* The farm as OPF stores it, and the live state printers report. */
 
-export type DriverKind = "bambu" | "moonraker" | "prusalink" | "octoprint" | "simulator";
+export type DriverKind = "bambu" | "anycubic" | "moonraker" | "prusalink" | "octoprint" | "simulator";
 
 export type PrinterStatus =
   | "idle" // ready, bed clear
@@ -78,6 +78,8 @@ export interface JobFilament {
   color: string;
   material: string;
   grams: number;
+  /** Which of the slicer's filaments it is (0 for the first, T0), when the sliced file says. */
+  index?: number;
 }
 
 /** One plate: what a printer prints in one go. */

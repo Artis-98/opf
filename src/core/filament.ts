@@ -53,6 +53,10 @@ export interface FilamentMatch {
 
 export function matchFilaments(job: Pick<PlateJob, "filaments">, live: LiveState | undefined): FilamentMatch[] {
   const slots = loadedSlots(live);
+  // One spool and no way to tell what is on it (an Anycubic without an ACE, an external spool
+  // nobody described on the printer): the plate prints from that spool.
+  const single = live?.external;
+  if (!slots.length && single && !live.ams.length) return job.filaments.map((need) => ({ need, slot: single, problem: null }));
   const used = new Set<FilamentSlot>();
   return job.filaments.map((need) => {
     const fam = materialFamily(need.material);

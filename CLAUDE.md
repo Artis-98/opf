@@ -13,7 +13,10 @@ Run tests and typecheck before every commit.
 
 - `src/core` must not import Electron or Node-only modules (except in tests); it runs in the browser demo too.
 - Everything the window can do goes through `FarmService.act(name, args)`; add new actions to `ACTIONS` in `src/core/farm.ts`.
-- Printer brands are drivers implementing `PrinterDriver` (`src/core/driver.ts`).
+- Printer brands are drivers implementing `PrinterDriver` (`src/core/driver.ts`): Bambu Lab
+  (`src/main/drivers/bambu.ts`) and Anycubic Kobra 3 / S1 in LAN mode (`anycubic.ts`, reports
+  read in `src/core/anycubic-report.ts`). The Anycubic print start is checked on a Kobra X by
+  others but not yet on the owner's Kobra 3 Max.
 - The scheduler follows the same rules as iiteg-admin-hub's `src/lib/schedule.ts`; keep them in step.
 - UI text is plain and from the operator's side ("Clear the bed", not "Acknowledge job completion").
 

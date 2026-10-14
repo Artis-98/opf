@@ -18,7 +18,8 @@ type View = "farm" | "timeline" | "prepare";
 function machineProfile(p: PrinterConfig): string | null {
   const m = p.slicing?.machine;
   if (m) return m.split(/[\\/]/).pop()!.replace(/\.json$/i, "");
-  return p.model.startsWith("Bambu Lab ") ? `${p.model} 0.4 nozzle` : null;
+  // OrcaSlicer's own profiles for these makers are named "<model> 0.4 nozzle".
+  return p.model.startsWith("Bambu Lab ") || p.model.startsWith("Anycubic ") ? `${p.model} 0.4 nozzle` : null;
 }
 
 function readTheme(): string {

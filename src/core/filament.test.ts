@@ -94,3 +94,12 @@ describe("starting with filament that is not loaded", () => {
     expect(slotsForStart(job(["#00FF00", "PLA"]), emptyLive("idle"), true)).toEqual([null]);
   });
 });
+
+describe("a printer with one spool it cannot describe", () => {
+  it("prints any plate from that spool, without asking", () => {
+    const single: LiveState = { ...emptyLive("idle"), external: { unit: -1, slot: 0, color: null, material: null, remainPct: null } };
+    const job = { filaments: [{ color: "#00FF00", material: "PETG", grams: 5 }] };
+    expect(filamentWarning(job, single)).toBeNull();
+    expect(slotsForStart(job, single, false)).toEqual([single.external]);
+  });
+});

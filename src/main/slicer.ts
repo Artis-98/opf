@@ -133,7 +133,8 @@ export function parseSliceInfo(xml: string): Omit<SliceResult, "file"> {
     // Some slicer versions leave used_g at 0 and only give the length; work the weight out from it.
     let grams = parseFloat(attr("used_g")) || 0;
     if (!grams) grams = gramsFromLength(parseFloat(attr("used_m")) || 0, material);
-    filaments.push({ color: attr("color").toUpperCase() || "#808080", material, grams: Math.round(grams * 10) / 10 });
+    const id = parseInt(attr("id"), 10);
+    filaments.push({ color: attr("color").toUpperCase() || "#808080", material, grams: Math.round(grams * 10) / 10, ...(id > 0 ? { index: id - 1 } : {}) });
   }
   if (!Number.isFinite(seconds)) throw new Error("The slicer did not report a print time.");
   const total = Number.isFinite(weight) && weight > 0 ? weight : filaments.reduce((a, f) => a + f.grams, 0);

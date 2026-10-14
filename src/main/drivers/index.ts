@@ -1,6 +1,7 @@
 import { NotYetSupported, type DriverFactory } from "../../core/driver";
 import { simulatorFor, type SimScenario } from "../../core/simulator";
 import { BambuDriver } from "./bambu";
+import { AnycubicDriver } from "./anycubic";
 
 /**
  * Real printers get their brand's driver; simulated ones run at the farm's
@@ -11,6 +12,8 @@ export function makeDriverFactory(speed: () => number, scenarios: () => Record<s
     switch (cfg.driver) {
       case "bambu":
         return new BambuDriver(cfg, emit);
+      case "anycubic":
+        return new AnycubicDriver(cfg, emit);
       case "simulator":
         return simulatorFor(cfg, emit, speed, scenarios()[cfg.id]);
       default:

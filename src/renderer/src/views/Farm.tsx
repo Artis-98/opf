@@ -408,7 +408,7 @@ function Inspector({ id, now, onAddPlate, onEdit, onEditPlate, flash }: {
           <span className={`pill ${pillCls}`}>{STATUS_LABEL[st]}</span>
         </div>
         <div className="row" style={{ justifyContent: "space-between" }}>
-          <span className="conn"><i className={`dot ${st === "offline" ? "off" : ""}`} />{p.driver === "bambu" ? `LAN · ${p.host ?? "no address"}` : p.driver === "simulator" ? "Simulated printer" : p.driver}</span>
+          <span className="conn"><i className={`dot ${st === "offline" ? "off" : ""}`} />{p.driver === "bambu" || p.driver === "anycubic" ? `LAN · ${p.host ?? "no address"}` : p.driver === "simulator" ? "Simulated printer" : p.driver}</span>
           <button className="btn sm ghost" onClick={() => onEdit(id)}>{Icon.edit}Printer settings</button>
         </div>
       </div>

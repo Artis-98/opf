@@ -137,6 +137,22 @@ npm run typecheck
 The printer's own certificate cannot be checked against its IP address, so OPF
 accepts it for this local connection only.
 
+## Connecting an Anycubic printer
+
+Kobra 3, Kobra 3 Max, Kobra 3 V2, Kobra S1 and S1 Max, with or without an ACE.
+
+1. On the printer, turn on **LAN mode** in its network settings and note its
+   **IP address**. LAN mode takes it off the Anycubic app and cloud.
+2. In OPF: Add printer → Anycubic Kobra 3 / S1, local network → the IP address.
+
+OPF asks the printer for a login each time it connects (nothing from Anycubic's
+apps is needed), then reads its status and the ACE's colours, and starts,
+pauses and stops prints. Plates sliced in OPF Slicer for the Kobra are sent as
+plain G-code. The protocol was worked out by the community
+([anycubic_ha_local](https://github.com/chrisfore/anycubic_ha_local),
+[kobra-connect](https://github.com/rvanderp3/kobra-connect)); starting prints
+from OPF is new, so watch the first one.
+
 ## Slicing profiles
 
 OPF slices with your own slicer and your own settings. For each printer:
