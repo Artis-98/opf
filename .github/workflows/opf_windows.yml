@@ -1,0 +1,36 @@
+# OPF: builds only the Windows x64 version (installer and portable folder) on each change to main,
+# instead of every platform "Build all" builds. The first run also builds the dependencies, about
+# two hours; later runs reuse them from the cache.
+name: OPF Windows build
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'src/**'
+      - 'resources/**'
+      - 'deps/**'
+      - 'deps_src/**'
+      - '**/CMakeLists.txt'
+      - 'localization/**'
+      - 'version.inc'
+      - 'build_win.bat'
+      - '.github/workflows/opf_windows.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: opf-windows-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build_windows:
+    name: OPF Slicer for Windows
+    uses: ./.github/workflows/build_check_cache.yml
+    with:
+      os: windows-latest
+      arch: x64
+      compiler: clang
+      build-deps-only: false
+      force-build: false
+    secrets: inherit

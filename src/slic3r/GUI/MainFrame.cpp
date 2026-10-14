@@ -1546,6 +1546,12 @@ void MainFrame::init_tabpanel() {
         m_tabpanel->AddPage(TAB_ID_MULTI_DEVICE, m_multi_machine_page, _L("Multi-device"), "tab_multi_active");
     }
 
+    // OPF: the Farm tab, before Project. show_device() inserts the Device tabs after Preview, so it stays
+    // after them. Order 70: prebuilt last, after the built-in pages.
+    m_farm_page = new LazyPage<FarmPanel>(m_tabpanel, TAB_ID_FARM, 70);
+    m_lazy_pages.push_back(m_farm_page);
+    m_tabpanel->AddPage(TAB_ID_FARM, m_farm_page, _L("Farm"), "tab_farm_active");
+
     m_project_page = new LazyPage<ProjectPanel>(m_tabpanel, TAB_ID_PROJECT, 60);
     m_lazy_pages.push_back(m_project_page);
     m_tabpanel->AddPage(TAB_ID_PROJECT, m_project_page, _L("Project"), "tab_auxiliary_active");
