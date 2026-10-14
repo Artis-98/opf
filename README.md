@@ -159,9 +159,11 @@ farm; Prepare and Preview are OrcaSlicer's own.
   from Preview. The plate goes into its queue together with its project.
 - **Edit** on a plate in a queue opens its project in Prepare. Sending it again
   replaces the plate in its place in the queue.
-- OPF Slicer starts OPF without a window when it is not running (a tray icon
-  shows it is there). OPF writes where its launcher is to `launcher.json` in its
-  settings folder for that.
+- One program: once OPF Slicer has been opened, OPF's desktop icon opens OPF
+  Slicer, with the farm running in the background (a tray icon shows it is
+  there; it also opens the farm window). OPF Slicer also starts the farm by
+  itself when it is not running. `OPF.bat --window` opens the farm window
+  instead, as before.
 
 ## Sending plates from OrcaSlicer
 

@@ -1,8 +1,8 @@
 import { app, BrowserWindow, dialog, ipcMain, Menu, shell, Tray } from "electron";
-import { execFile } from "node:child_process";
-import { existsSync, writeFileSync } from "node:fs";
+import { execFile, spawn } from "node:child_process";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
-import { basename, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import type { FarmService } from "../core/farm";
 import { demoFarm } from "../core/demo";
 import type { SimScenario } from "../core/simulator";
@@ -58,12 +58,24 @@ function createWindow() {
   win.on("closed", () => (win = null));
 }
 
+/** OPF Slicer, once it has said where it is (it writes slicer.json in OPF's settings folder). */
+function slicerExe(): string | null {
+  try {
+    const { exe } = JSON.parse(readFileSync(join(app.getPath("userData"), "slicer.json"), "utf8")) as { exe?: unknown };
+    return typeof exe === "string" && existsSync(exe) ? exe : null;
+  } catch {
+    return null;
+  }
+}
+
 /** In the background, a tray icon says OPF is running and opens or quits it. */
 function createTray() {
   tray = new Tray(icon);
   tray.setToolTip("OPF is running for OPF Slicer");
+  const slicer = slicerExe();
   tray.setContextMenu(Menu.buildFromTemplate([
-    { label: "Open OPF", click: showWindow },
+    ...(slicer ? [{ label: "Open OPF Slicer", click: () => spawn(slicer, [], { cwd: dirname(slicer), detached: true, stdio: "ignore" }).unref() }] : []),
+    { label: "Open the farm window", click: showWindow },
     { type: "separator" },
     { label: "Quit OPF", click: () => app.quit() },
   ]));

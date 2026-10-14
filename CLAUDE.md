@@ -45,7 +45,10 @@ messages are listed in the fork's `OPF.md`). Send to farm posts to
 `/api/v1/ui/plates`, Edit fetches `/api/v1/ui/plates/<id>/project`. When the farm
 does not answer, the slicer runs `launch.cjs --background` through
 `launcher.json` (in OPF's settings folder): Electron with no window and a tray
-icon, and closing a window opened later keeps it running. Changing these
+icon, and closing a window opened later keeps it running. The slicer writes
+`slicer.json` there too, and from then on OPF.bat (the desktop icon) starts the
+farm in the background and opens the slicer instead of OPF's window
+(`--window` for the window). Changing these
 messages or endpoints needs the fork changed too, and a slicer build takes about
 an hour, so keep them backward compatible.
 

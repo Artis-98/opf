@@ -3,15 +3,19 @@
 //   1. Fetches the newest version from GitHub (git pull). Offline? It starts
 //      the version already here.
 //   2. Installs packages, but only when package-lock.json changed.
-//   3. Builds the app and opens it, then this window closes.
+//   3. Builds the app (when this version is not built yet) and opens it, then
+//      this window closes.
 //   4. On Windows, the first time, puts an OPF icon on the desktop.
 //
-// OPF.bat (Windows) and OPF.sh (macOS, Linux) run this. The Restart button in
-// OPF runs it with --wait, so the old window can close first.
+// OPF.bat (Windows) and OPF.sh (macOS, Linux) run this. Once OPF Slicer has
+// said where it is (slicer.json in OPF's settings folder), it starts the farm
+// without a window and opens OPF Slicer instead: one program.
 // --background starts OPF without a window, for OPF Slicer's Farm tab. OPF Slicer
 // finds this script through launcher.json, which is written to OPF's settings
-// folder each time.
-// --no-start does everything except opening the window (for testing).
+// folder each time. What it does is written to launcher.log there.
+// --window opens OPF's own window, as before OPF Slicer.
+// --wait first waits for the OPF that asked for a restart to close.
+// --no-start does everything except opening anything (for testing).
 
 const { spawn, spawnSync } = require("child_process");
 const { createHash } = require("crypto");
@@ -22,7 +26,24 @@ const path = require("path");
 const root = path.join(__dirname, "..");
 const args = new Set(process.argv.slice(2));
 const win = process.platform === "win32";
-const say = (msg) => console.log(msg);
+const background = args.has("--background");
+
+// In the background nobody sees this window, so it goes to launcher.log too.
+let logFile = null;
+if (background) {
+  try {
+    logFile = path.join(settingsDir(), "launcher.log");
+    fs.mkdirSync(path.dirname(logFile), { recursive: true });
+    fs.writeFileSync(logFile, `${new Date().toISOString()} ${process.argv.slice(2).join(" ")}\n`);
+  } catch {
+    logFile = null;
+  }
+}
+
+function say(msg) {
+  console.log(msg);
+  if (logFile) try { fs.appendFileSync(logFile, msg + "\n"); } catch { /* still runs */ }
+}
 
 function run(cmd, cmdArgs, opts = {}) {
   const r = spawnSync(cmd, cmdArgs, { cwd: root, stdio: "inherit", shell: win && /\.cmd$/i.test(cmd), ...opts });
@@ -93,6 +114,20 @@ function build() {
   return run(process.execPath, [path.join(root, "node_modules", "electron-vite", "bin", "electron-vite.js"), "build"], { stdio: ["ignore", "ignore", "inherit"] });
 }
 
+/** Builds only when this version is not built yet: a start without changes is quicker. */
+function buildIfNeeded() {
+  const stampFile = path.join(root, "out", ".built-from");
+  const head = capture("git", ["rev-parse", "HEAD"]);
+  const clean = capture("git", ["status", "--porcelain", "--untracked-files=no"]) === "";
+  const stamp = head && clean ? head : null;
+  try {
+    if (stamp && fs.readFileSync(stampFile, "utf8").trim() === stamp && fs.existsSync(path.join(root, "out", "main", "index.js"))) return true;
+  } catch { /* not built yet */ }
+  if (!build()) return false;
+  if (stamp) try { fs.writeFileSync(stampFile, stamp); } catch { /* builds again next time */ }
+  return true;
+}
+
 /** A desktop icon, made once. PowerShell is only used for this, through an inline command. */
 function desktopShortcut() {
   if (!win) return;
@@ -115,17 +150,35 @@ function desktopShortcut() {
   if (r.stdout && r.stdout.includes("created")) say("Put an OPF icon on your desktop. Open OPF from there next time.");
 }
 
-function start() {
+/** Starts OPF: without a window for OPF Slicer, or with its own window. */
+function start(withoutWindow) {
   require(path.join(root, "scripts", "ensure-electron.cjs")).ensureElectron();
   const electron = require(path.join(root, "node_modules", "electron"));
   const env = { ...process.env };
   delete env.ELECTRON_RUN_AS_NODE;
   // OPF_ELECTRON_ARGS: extra Electron switches, for testing the launcher (e.g. a separate --user-data-dir).
   const extra = (process.env.OPF_ELECTRON_ARGS || "").split(" ").filter(Boolean);
-  if (args.has("--background")) extra.push("--background");
+  if (withoutWindow) extra.push("--background");
   const child = spawn(electron, [root, ...extra], { cwd: root, detached: true, stdio: "ignore", env });
   child.unref();
-  say(args.has("--background") ? "OPF is running for OPF Slicer." : "OPF is opening.");
+  say(withoutWindow ? "OPF's farm is running in the background." : "OPF is opening.");
+}
+
+/** OPF Slicer, once it has said where it is. */
+function slicerExe() {
+  try {
+    const { exe } = JSON.parse(fs.readFileSync(path.join(settingsDir(), "slicer.json"), "utf8"));
+    return typeof exe === "string" && fs.existsSync(exe) ? exe : null;
+  } catch {
+    return null;
+  }
+}
+
+function openSlicer(exe) {
+  // The farm is on its way: the slicer's Farm tab waits for it rather than starting another.
+  const env = { ...process.env, OPF_FARM_STARTING: "1" };
+  spawn(exe, [], { cwd: path.dirname(exe), detached: true, stdio: "ignore", env }).unref();
+  say("OPF Slicer is opening.");
 }
 
 /** OPF's settings folder, where Electron keeps it: <app data>/OPF. */
@@ -193,17 +246,23 @@ try {
   if (locked) {
     update();
     if (!installIfNeeded()) throw new Error("Installing packages failed.");
-    if (!build()) throw new Error("Building OPF failed.");
+    if (!buildIfNeeded()) throw new Error("Building OPF failed.");
     desktopShortcut();
   } else {
     say("OPF is already being updated. Waiting for that to finish…");
     while (fs.existsSync(lockFile) && !lockIsStale()) sleep(1000);
   }
   recordLauncher();
-  if (!args.has("--no-start")) start();
+  // The desktop icon opens OPF Slicer, with the farm in the background, once the slicer is known.
+  const slicer = background || args.has("--window") ? null : slicerExe();
+  if (!args.has("--no-start")) {
+    start(background || slicer !== null);
+    if (slicer) openSlicer(slicer);
+  }
   sleep(updateFailed ? 10000 : 1500); // long enough to read why it did not update
 } catch (e) {
   console.error(`\n${e.message}`);
+  if (logFile) try { fs.appendFileSync(logFile, `${e.message}\n`); } catch { /* shown above */ }
   process.exitCode = 1;
 } finally {
   if (locked) releaseLock();
