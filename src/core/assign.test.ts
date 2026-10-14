@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bestPrinter } from "./assign";
+import { bestPrinter, wrongPrinter } from "./assign";
 import { emptyFarm } from "./farm";
 import { emptyLive } from "./driver";
 import { amsOf } from "./simulator";
@@ -34,5 +34,31 @@ describe("bestPrinter", () => {
 
   it("returns null when every printer is offline", () => {
     expect(bestPrinter(data, { a: emptyLive("offline") }, { filaments: [] }, now)).toBeNull();
+  });
+});
+
+describe("plates sliced for another printer", () => {
+  const plate = (slicedFor?: string) => ({ name: "Clip", slicedFor });
+  it("refuses another Bambu Lab model, and says what to do", () => {
+    expect(wrongPrinter(plate("Bambu Lab A1"), { name: "Mini 1", model: "Bambu Lab A1 mini" })).toBe(
+      "Clip was sliced for a Bambu Lab A1, but Mini 1 is a Bambu Lab A1 mini. Slice it again for the Bambu Lab A1 mini.",
+    );
+  });
+  it("takes the same model, one machine under two names, and plates it cannot tell about", () => {
+    expect(wrongPrinter(plate("Bambu Lab A1 mini"), { name: "m", model: "Bambu Lab A1 mini" })).toBeNull();
+    expect(wrongPrinter(plate("Bambu Lab X1"), { name: "x", model: "Bambu Lab X1 Carbon" })).toBeNull();
+    expect(wrongPrinter(plate("Bambu Lab P1P"), { name: "p", model: "Bambu Lab P1S" })).toBeNull();
+    expect(wrongPrinter(plate(), { name: "m", model: "Bambu Lab A1 mini" })).toBeNull();
+    expect(wrongPrinter(plate("Voron 2.4 350"), { name: "v", model: "Prusa MK4S" })).toBeNull();
+  });
+  it("never picks a printer of another model", () => {
+    const data = emptyFarm();
+    data.printers = [
+      { id: "a1", name: "A1", model: "Bambu Lab A1", driver: "simulator" },
+      { id: "mini", name: "Mini", model: "Bambu Lab A1 mini", driver: "simulator" },
+    ];
+    const live = { a1: { ...emptyLive(), status: "idle" as const }, mini: { ...emptyLive(), status: "idle" as const } };
+    expect(bestPrinter(data, live, { filaments: [], slicedFor: "Bambu Lab A1 mini" })).toBe("mini");
+    expect(bestPrinter(data, live, { filaments: [], slicedFor: "Bambu Lab H2D" })).toBeNull();
   });
 });

@@ -95,6 +95,8 @@ export interface PlateJob {
   plate?: number;
   /** The project the plate was sliced from (.3mf), sent along by OPF Slicer so the plate can be opened and changed. */
   project?: string;
+  /** The printer model the plate was sliced for, e.g. "Bambu Lab A1 mini", when the file says. */
+  slicedFor?: string;
   /** Top view of the plate as a data: URL. */
   thumbnail: string | null;
   /** Where the time and grams came from. An estimate is replaced when the plate is sliced. */

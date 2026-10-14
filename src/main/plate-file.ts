@@ -4,9 +4,10 @@
 // Two kinds arrive:
 //   .gcode.3mf  Bambu Studio / OrcaSlicer project with the G-code inside.
 //               Time and weight come from Metadata/slice_info.config, the
-//               picture from Metadata/plate_<n>.png.
-//   .gcode      Plain G-code. Time and weight come from the comments the
-//               slicer writes at the top and bottom of the file.
+//               picture from Metadata/plate_<n>.png, the printer it was
+//               sliced for from Metadata/project_settings.config.
+//   .gcode      Plain G-code. Time, weight and printer come from the comments
+//               the slicer writes at the top and bottom of the file.
 
 import { open, readFile, stat } from "node:fs/promises";
 import { strFromU8, unzipSync } from "fflate";
@@ -18,6 +19,8 @@ export interface PlateInfo {
   grams: number;
   filaments: JobFilament[];
   thumbnail: string | null;
+  /** The printer model it was sliced for ("Bambu Lab A1 mini"), when the file says. */
+  slicedFor: string | null;
 }
 
 /** "1d 2h 3m 4s", "2h 05m", "45m 10s" → seconds. */
@@ -56,7 +59,7 @@ export function parseGcodeComments(text: string): Omit<PlateInfo, "thumbnail"> {
     if (n > 1 && !(grams > 0)) continue;
     filaments.push({ color: (colours[i] ?? "#808080").toUpperCase(), material: types[i] ?? types[0] ?? "PLA", grams: Math.round(grams) });
   }
-  return { minutes: Math.round(seconds / 60), grams: Math.round(total), filaments };
+  return { minutes: Math.round(seconds / 60), grams: Math.round(total), filaments, slicedFor: find(/^;\s*printer_model\s*=\s*([^\n]+)/im) || null };
 }
 
 async function headAndTail(path: string, bytes = 96 * 1024): Promise<string> {
@@ -85,7 +88,7 @@ export async function readPlateFile(path: string, plate = 1): Promise<PlateInfo>
   if (!lower.endsWith(".3mf")) throw new Error("OPF takes sliced .gcode.3mf or .gcode files.");
 
   // One pass over the zip: note every name, unpack only the small files we read.
-  const want = new Set([`Metadata/slice_info.config`, `Metadata/plate_${plate}.png`]);
+  const want = new Set([`Metadata/slice_info.config`, `Metadata/plate_${plate}.png`, "Metadata/project_settings.config"]);
   const names = new Set<string>();
   const files = unzipSync(new Uint8Array(await readFile(path)), {
     filter: (f) => {
@@ -98,7 +101,18 @@ export async function readPlateFile(path: string, plate = 1): Promise<PlateInfo>
   if (!xml) throw new Error("The file has no slice information.");
   const info = parseSliceInfoForPlate(strFromU8(xml), plate);
   const png = files[`Metadata/plate_${plate}.png`];
-  return { ...info, thumbnail: png ? `data:image/png;base64,${Buffer.from(png).toString("base64")}` : null };
+  return { ...info, thumbnail: png ? `data:image/png;base64,${Buffer.from(png).toString("base64")}` : null, slicedFor: printerModel(files["Metadata/project_settings.config"]) };
+}
+
+/** "printer_model" from a project's settings: the printer the plate was sliced for. */
+function printerModel(settings: Uint8Array | undefined): string | null {
+  if (!settings) return null;
+  try {
+    const model = (JSON.parse(strFromU8(settings)) as { printer_model?: unknown }).printer_model;
+    return typeof model === "string" && model.trim() ? model.trim() : null;
+  } catch {
+    return null;
+  }
 }
 
 /** slice_info.config lists every sliced plate; take the one asked for. */

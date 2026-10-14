@@ -3,6 +3,7 @@ import { useFarm, useNow } from "../state";
 import { opf } from "../bridge";
 import { schedulePrinter, type Slot } from "../../../core/schedule";
 import { matchFilaments } from "../../../core/filament";
+import { wrongPrinter } from "../../../core/assign";
 import type { InboxItem, LiveState, PlateJob, PrinterConfig, PrinterStatus, Snapshot } from "../../../core/types";
 import { PlateThumb, PrinterArt } from "../components/PrinterArt";
 import { Icon } from "../components/icons";
@@ -455,7 +456,7 @@ function Inspector({ id, now, onAddPlate, onEdit, onEditPlate, flash }: {
                     if (to) { await act("transfer", id, i, to.id); toast(`${job.name} moved to ${to.name}`); }
                   }}>
                     <option value="">Move to…</option>
-                    {others.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+                    {others.filter((o) => !wrongPrinter(job, o)).map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
                   </select>
                 </div>
               </div>

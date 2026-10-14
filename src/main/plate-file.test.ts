@@ -31,6 +31,7 @@ describe("parseGcodeComments", () => {
       "; total filament used [g] = 4.93",
       "; filament_colour = #FFFFFF;#000000;#00AE42",
       "; filament_type = PLA;PLA;PETG",
+      "; printer_model = Bambu Lab A1",
     ].join("\n");
     expect(parseGcodeComments(g)).toEqual({
       minutes: 70,
@@ -39,12 +40,13 @@ describe("parseGcodeComments", () => {
         { color: "#FFFFFF", material: "PLA", grams: 4 },
         { color: "#00AE42", material: "PETG", grams: 1 },
       ],
+      slicedFor: "Bambu Lab A1",
     });
   });
 
   it("reads PrusaSlicer's footer", () => {
     const g = "G1 X1\n; filament used [g] = 12.34\n; estimated printing time (normal mode) = 2h 5m 0s\n; filament_type = PETG\n; filament_colour = #FF8000\n";
-    expect(parseGcodeComments(g)).toEqual({ minutes: 125, grams: 12, filaments: [{ color: "#FF8000", material: "PETG", grams: 12 }] });
+    expect(parseGcodeComments(g)).toEqual({ minutes: 125, grams: 12, filaments: [{ color: "#FF8000", material: "PETG", grams: 12 }], slicedFor: null });
   });
 
   it("refuses G-code that does not say how long it takes", () => {
@@ -81,5 +83,13 @@ describe("readPlateFile", () => {
     const path = join(dir, "part.gcode");
     writeFileSync(path, "; estimated printing time (normal mode) = 30m 0s\nG28\n; total filament used [g] = 7.5\n");
     expect(await readPlateFile(path)).toMatchObject({ minutes: 30, grams: 8, thumbnail: null });
+  });
+});
+
+describe("which printer a plate was sliced for", () => {
+  it("reads it from G-code comments", () => {
+    const g = "; total estimated time: 10m\n; printer_model = Bambu Lab A1 mini\n";
+    expect(parseGcodeComments(g).slicedFor).toBe("Bambu Lab A1 mini");
+    expect(parseGcodeComments("; total estimated time: 10m\n").slicedFor).toBeNull();
   });
 });

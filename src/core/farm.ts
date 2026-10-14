@@ -4,6 +4,7 @@
 // demo. Everything the window can do goes through `act()`, by name, so the
 // list of things a window (or the local API) may ask for is written down once.
 
+import { wrongPrinter } from "./assign";
 import { emptyLive, type DriverFactory, type PrinterDriver } from "./driver";
 import type { FarmData, InboxItem, LiveState, PlateJob, PrinterConfig, Settings, SlicerInfo, Snapshot } from "./types";
 
@@ -250,8 +251,15 @@ export class FarmService {
 
   /* ---------- queues ---------- */
 
+  /** Refuses a plate sliced for another printer model: its G-code would drive this one wrongly. */
+  private checkFits(job: Pick<PlateJob, "name" | "slicedFor">, printerId: string) {
+    const why = wrongPrinter(job, this.printer(printerId));
+    if (why) throw new Error(why);
+  }
+
   enqueue(printerId: string, job: Omit<PlateJob, "id" | "createdAt"> & { id?: string }, position: "end" | "next" | number = "end"): string {
     const q = this.queue(printerId);
+    this.checkFits(job, printerId);
     const full: PlateJob = { ...job, id: job.id ?? newId("j-"), createdAt: Date.now() };
     const at = position === "end" ? q.length : position === "next" ? 0 : Math.max(0, Math.min(q.length, position));
     q.splice(at, 0, full);
@@ -276,6 +284,7 @@ export class FarmService {
 
   transfer(printerId: string, index: number, toPrinterId: string, position: "end" | "next" = "end") {
     const q = this.queue(printerId), to = this.queue(toPrinterId);
+    if (q[index]) this.checkFits(q[index], toPrinterId);
     const [j] = q.splice(index, 1);
     if (!j) return;
     if (position === "next") to.unshift(j);
@@ -311,6 +320,7 @@ export class FarmService {
     const q = this.queue(at.printerId);
     const old = q[at.index];
     const updated: PlateJob = { ...job, id: old.id, ref: job.ref ?? old.ref, createdAt: old.createdAt };
+    this.checkFits(updated, toPrinterId ?? at.printerId);
     if (toPrinterId && toPrinterId !== at.printerId) {
       const to = this.queue(toPrinterId);
       q.splice(at.index, 1);
@@ -341,6 +351,7 @@ export class FarmService {
     if (live?.status === "offline") throw new Error(`${p.name} is offline.`);
     const job = q[0];
     if (!job.file && p.driver !== "simulator") throw new Error("Slice this plate before sending it. It only has an estimate.");
+    this.checkFits(job, printerId);
     await this.drivers.get(printerId)!.start(job);
     q.shift();
     this.data.current[printerId] = job;

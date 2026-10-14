@@ -23,9 +23,9 @@ import { createReadStream, createWriteStream, existsSync, mkdirSync, renameSync,
 import { extname, join, normalize, resolve, sep } from "node:path";
 import busboy from "busboy";
 import { schedulePrinter } from "../core/schedule";
-import { bestPrinter } from "../core/assign";
+import { bestPrinter, wrongPrinter } from "../core/assign";
 import { newId, type FarmService } from "../core/farm";
-import type { PlateJob } from "../core/types";
+import type { PlateJob, PrinterConfig } from "../core/types";
 import type { Result } from "../preload/api";
 import { readPlateFile } from "./plate-file";
 import type { Change, UpdateState } from "./updater";
@@ -209,7 +209,7 @@ async function receivePlate(req: IncomingMessage, res: ServerResponse, farm: Far
   }
   const job: Omit<PlateJob, "id" | "createdAt"> = {
     name, ref: null, minutes: info.minutes, grams: info.grams, filaments: info.filaments,
-    file, plate, thumbnail: info.thumbnail, source: "slicer", ...(project ? { project } : {}),
+    file, plate, thumbnail: info.thumbnail, source: "slicer", ...(project ? { project } : {}), ...(info.slicedFor ? { slicedFor: info.slicedFor } : {}),
   };
 
   const { data, live } = farm.view();
@@ -236,7 +236,7 @@ async function receivePlate(req: IncomingMessage, res: ServerResponse, farm: Far
     const target = printer ?? bestPrinter(data, live, job);
     if (!target) {
       removeUploads(opts.uploads, [file, project]);
-      return send(res, 409, { ok: false, error: "No printer in OPF can take this plate: every printer is offline." });
+      return send(res, 409, { ok: false, error: noPrinterFor(data.printers, job) });
     }
     const q = await opts.act("enqueue", [target, { ...job, id }, "end"]);
     if (!q.ok) {
@@ -247,6 +247,14 @@ async function receivePlate(req: IncomingMessage, res: ServerResponse, farm: Far
   const at = farm.findQueued(id);
   const p = farm.view().data.printers.find((x) => x.id === at?.printerId);
   return send(res, 200, { ok: true, value: { job: { id, name }, printer: { id: p?.id ?? null, name: p?.name ?? null }, replaced } });
+}
+
+/** Why no printer was picked for a plate: none of its model, or those are offline. */
+function noPrinterFor(printers: PrinterConfig[], job: Pick<PlateJob, "name" | "slicedFor">) {
+  if (job.slicedFor && printers.length && printers.every((p) => wrongPrinter(job, p))) {
+    return `${job.name} was sliced for a ${job.slicedFor}, and OPF has no printer of that model. Slice it again for one of yours.`;
+  }
+  return "No printer in OPF can take this plate now: the ones it fits are offline.";
 }
 
 export function plateName(filename: string) {
@@ -336,14 +344,20 @@ export function startApi(farm: FarmService, opts: ServerOptions): Server | null 
         const job: Omit<PlateJob, "id" | "createdAt"> & { id: string } = {
           id: jobId, name: plateName(sent.filename) + (plate > 1 ? ` (plate ${plate})` : ""), ref: null,
           minutes: info.minutes, grams: info.grams, filaments: info.filaments, file: finalPath, plate,
-          thumbnail: info.thumbnail, source: "slicer",
+          thumbnail: info.thumbnail, source: "slicer", ...(info.slicedFor ? { slicedFor: info.slicedFor } : {}),
         };
         const { data, live } = farm.view();
         const target = printerId ?? bestPrinter(data, live, job);
-        if (!target) return send(res, 409, { error: "No printer in OPF can take this plate: every printer is offline." });
+        if (!target) {
+          removeUploads(opts.uploads, [finalPath]);
+          return send(res, 409, { error: noPrinterFor(data.printers, job) });
+        }
         const startNow = up.fields.print === "true";
         const q = await opts.act("enqueue", [target, job, startNow ? "next" : "end"]);
-        if (!q.ok) return send(res, 400, { error: q.error });
+        if (!q.ok) {
+          removeUploads(opts.uploads, [finalPath]);
+          return send(res, 400, { error: q.error });
+        }
         if (startNow) {
           const v = farm.view();
           const l = v.live[target];

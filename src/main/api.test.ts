@@ -2,7 +2,7 @@ import { afterAll, afterEach, describe, expect, it } from "vitest";
 import { mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { strToU8, zipSync } from "fflate";
+import { strToU8, unzipSync, zipSync } from "fflate";
 import type { AddressInfo } from "node:net";
 import type { Server } from "node:http";
 import { emptyFarm, FarmService } from "../core/farm";
@@ -209,6 +209,38 @@ describe("local API", () => {
     expect(got.status).toBe(404);
     expect(((await got.json()) as { error: string }).error).toMatch(/without its project/);
     expect((await fetch(`${base}/api/v1/ui/plates/nope/project`)).status).toBe(404);
+  });
+
+  it("refuses a plate sliced for another printer model, and picks one of the right model", async () => {
+    const base = (await setup()).replace("/api/v1", "");
+    const a1 = farm.addPrinter({ name: "A1", model: "Bambu Lab A1", driver: "simulator" });
+    const mini = farm.addPrinter({ name: "Mini", model: "Bambu Lab A1 mini", driver: "simulator" });
+    await new Promise((r) => setTimeout(r, 50));
+    const forA1 = zipSync({
+      ...Object.fromEntries(Object.entries(unzipSync(sliced(600, 5)))),
+      "Metadata/project_settings.config": strToU8(JSON.stringify({ printer_model: "Bambu Lab A1" })),
+    });
+    const form = (printer: string | null) => {
+      const f = new FormData();
+      f.append("name", "Clip");
+      if (printer) f.append("printer", printer);
+      f.append("file", new Blob([new Uint8Array(forA1)]), "ForA1.gcode.3mf");
+      return f;
+    };
+    const files = () => readdirSync(uploads).length;
+    const before = files();
+    const wrong = await fetch(`${base}/api/v1/ui/plates`, { method: "POST", body: form(mini) });
+    expect(wrong.status).toBe(400);
+    expect(((await wrong.json()) as { error: string }).error).toBe("Clip was sliced for a Bambu Lab A1, but Mini is a Bambu Lab A1 mini. Slice it again for the Bambu Lab A1 mini.");
+    expect(farm.view().data.queues[mini]).toEqual([]);
+    const picked = (await (await fetch(`${base}/api/v1/ui/plates`, { method: "POST", body: form(null) })).json()) as Sent;
+    expect(picked.value.printer.id).toBe(a1);
+    expect(farm.view().data.queues[a1][0].slicedFor).toBe("Bambu Lab A1");
+    // Moving it to the mini is refused too, and so is starting it there.
+    await expect(farm.act("transfer", [a1, 0, mini])).rejects.toThrow(/sliced for a Bambu Lab A1/);
+    const octo = await upload(`${base}/octo/${mini}`, forA1, "ForA1.gcode.3mf");
+    expect(octo.status).toBe(400);
+    expect(files()).toBe(before + 1); // only the plate that was queued is kept
   });
 
   it("serves the farm page and its live data to this computer", async () => {
