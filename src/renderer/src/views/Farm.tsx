@@ -62,8 +62,8 @@ function Welcome({ onAdd }: { onAdd: () => void }) {
   const { toast } = useFarm();
   return (
     <div className="welcome">
-      <h2>Your farm is empty</h2>
-      <p>Add your printers and put them on shelves the way they stand in your workshop. Bambu Lab printers connect over your local network with their IP address, serial number and LAN access code.</p>
+      <h2>Add your first printer</h2>
+      <p>Add your printers here and put them on shelves the way they stand in your workshop. Each one is set up in Prepare too, with its own printer profile, so you add a printer once. Bambu Lab printers connect over your local network with their IP address, serial number and LAN access code; Anycubic printers with their IP address in LAN mode.</p>
       <div className="row">
         <button className="btn pri" onClick={onAdd}>{Icon.plus}Add a printer</button>
         <button className="btn" onClick={async () => { await opf.loadDemo(); toast("Demo farm loaded. These printers are simulated."); }}>Try the demo farm</button>

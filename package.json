@@ -1,7 +1,7 @@
 {
   "name": "opf",
   "productName": "OPF",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Open Print Farm: run a whole farm of 3D printers from one place.",
   "license": "AGPL-3.0-or-later",
   "author": "Artis Agrums <aa@iiteg.com>",

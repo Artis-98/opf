@@ -25,7 +25,7 @@ export interface UpdateState {
 }
 
 /** Where the installer is offered. */
-export const DOWNLOAD_PAGE = "https://artis-98.github.io/opf/";
+export const DOWNLOAD_PAGE = "https://opf.iiteg.com/";
 
 /** "0.2.10" is newer than "0.2.9". Anything after a dash ("0.3.0-beta") is ignored. */
 export function isNewer(version: string, than: string): boolean {

@@ -78,6 +78,16 @@ function Shell() {
     if (embedded === "farm" || (embedded === "timeline" && selName)) toSlicer({ command: "opf_target", printer: selName ? sel : null, name: selName });
   }, [sel, selName]);
 
+  // In OPF Slicer: the farm's printers, so the slicer sets up each one's printer profile and a printer is
+  // added only once, here. Sent again whenever the list of models changes; older slicers ignore it.
+  const machines = JSON.stringify([...new Map(snap.data.printers
+    .map((p) => ({ model: p.model, preset: machineProfile(p) }))
+    .filter((m) => m.preset)
+    .map((m) => [m.preset, m])).values()]);
+  useEffect(() => {
+    if (embedded === "farm") toSlicer({ command: "opf_printers", machines: JSON.parse(machines) });
+  }, [machines]);
+
   useEffect(() => {
     window.opfShowJob = (id) => setShown(id);
     return () => { window.opfShowJob = undefined; };

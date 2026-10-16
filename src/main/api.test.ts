@@ -178,6 +178,18 @@ describe("local API", () => {
     expect(await got.text()).toBe("the project");
   });
 
+  it("tells OPF Slicer's Sync button what is loaded in a printer, slot by slot", async () => {
+    const base = (await setup()).replace("/api/v1", "");
+    const a = farm.addPrinter({ name: "A1", model: "Bambu Lab A1", driver: "simulator" });
+    const r = (await (await fetch(`${base}/api/v1/ui/printers/${a}/filaments`)).json()) as { ok: boolean; value: { printer: { name: string }; slots: { color: string | null; material: string | null }[] } };
+    expect(r.ok).toBe(true);
+    expect(r.value.printer.name).toBe("A1");
+    // The test farm's simulated printers carry the demo AMS: four PLA spools.
+    expect(r.value.slots.slice(0, 4).map((s) => s.material)).toEqual(["PLA", "PLA", "PLA", "PLA"]);
+    expect(r.value.slots[0]).toMatchObject({ unit: 0, slot: 0, color: "#202224" });
+    expect((await fetch(`${base}/api/v1/ui/printers/nope/filaments`)).status).toBe(404);
+  });
+
   it("names an Untitled plate after its first part, and keeps a name somebody gave it", async () => {
     const base = (await setup()).replace("/api/v1", "");
     const a = farm.addPrinter({ name: "A1", model: "m", driver: "simulator" });

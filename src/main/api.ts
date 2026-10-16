@@ -258,6 +258,21 @@ function noPrinterFor(printers: PrinterConfig[], job: Pick<PlateJob, "name" | "s
   return "No printer in OPF can take this plate now: the ones it fits are offline.";
 }
 
+/**
+ * The filament in each of a printer's slots, AMS (or ACE) first, in order, then the spool on the
+ * printer itself. Empty slots stay in the list with no colour, so slot numbers line up. When the printer
+ * is offline the last thing it reported is used; `live` says whether it is connected now.
+ */
+export function loadedFilaments(farm: FarmService, printerId: string) {
+  const { data, live } = farm.view();
+  const p = data.printers.find((x) => x.id === printerId);
+  if (!p) return null;
+  const l = live[printerId];
+  const slots = [...(l?.ams ?? []).flatMap((u) => u.slots), ...(l?.external ? [l.external] : [])]
+    .map((s) => ({ unit: s.unit, slot: s.slot, color: s.color, material: s.material }));
+  return { printer: { id: p.id, name: p.name, model: p.model }, live: !!l && l.status !== "offline", slots };
+}
+
 export function plateName(filename: string) {
   return filename.replace(/\.(gcode\.3mf|3mf|gcode)$/i, "").replace(/[_]+/g, " ").trim() || "Plate";
 }
@@ -308,6 +323,12 @@ export function startApi(farm: FarmService, opts: ServerOptions): Server | null 
           return;
         }
         if (what === "plates" && req.method === "POST") return await receivePlate(req, res, farm, opts);
+        // OPF Slicer's Sync button: what is loaded in one printer, slot by slot.
+        const fil = /^printers\/([^/]+)\/filaments$/.exec(what);
+        if (fil && req.method === "GET") {
+          const found = loadedFilaments(farm, decodeURIComponent(fil[1]));
+          return found ? send(res, 200, { ok: true, value: found }) : send(res, 404, { ok: false, error: "That printer is no longer in OPF." });
+        }
         const project = /^plates\/([^/]+)\/project$/.exec(what);
         if (project && req.method === "GET") {
           const job = farm.findJob(decodeURIComponent(project[1]));

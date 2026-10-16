@@ -48,11 +48,20 @@ const DRIVERS: { kind: DriverKind; label: string; ready: boolean }[] = [
   { kind: "octoprint", label: "OctoPrint (coming)", ready: false },
 ];
 
+/** The connection a model uses, and whether it is enclosed, so picking the model fills them in. */
+function forModel(model: string): Partial<Omit<PrinterConfig, "id">> {
+  if (model.startsWith("Anycubic ")) return { driver: "anycubic", enclosed: /S1/.test(model) };
+  if (model.startsWith("Bambu Lab ")) return { driver: "bambu", enclosed: !/ A1( mini)?$/.test(model) };
+  return {};
+}
+
 export function PrinterDialog({ id, place, onClose, onSaved }: { id: string | null; place?: { shelfId: string; slot: number }; onClose: () => void; onSaved: (id: string) => void }) {
   const { snap, act, toast } = useFarm();
   const existing = id ? snap.data.printers.find((p) => p.id === id) : undefined;
+  // A new printer starts empty; the grey hints show what goes where, and the name hint is used if left empty.
+  const nameHint = `Printer ${snap.data.printers.length + 1}`;
   const [f, setF] = useState<Omit<PrinterConfig, "id">>(() => existing ? { ...existing } : {
-    name: `Printer ${snap.data.printers.length + 1}`, model: "Bambu Lab P1S", driver: "bambu", host: "", serial: "", accessCode: "", enclosed: true, slicing: null,
+    name: "", model: "", driver: "bambu", host: "", serial: "", accessCode: "", enclosed: true, slicing: null,
   });
   const [confirmDelete, setConfirmDelete] = useState(false);
   const set = <K extends keyof typeof f>(k: K, v: (typeof f)[K]) => setF((x) => ({ ...x, [k]: v }));
@@ -64,10 +73,12 @@ export function PrinterDialog({ id, place, onClose, onSaved }: { id: string | nu
   };
 
   const save = async () => {
-    if (!f.name.trim()) return toast("Give the printer a name.", true);
+    const name = f.name.trim() || (existing ? "" : nameHint);
+    if (!name) return toast("Give the printer a name.", true);
+    if (!f.model.trim() && f.driver !== "simulator") return toast("Choose the printer's model.", true);
     if (f.driver === "bambu" && (!f.host?.trim() || !f.serial?.trim() || !f.accessCode?.trim())) return toast("A Bambu printer needs its IP address, serial number and access code.", true);
     if (f.driver === "anycubic" && !f.host?.trim()) return toast("An Anycubic printer needs its IP address.", true);
-    const clean = { ...f, name: f.name.trim(), host: f.host?.trim(), serial: f.serial?.trim().toUpperCase(), accessCode: f.accessCode?.trim(), slicing: slicing.machine && slicing.process && slicing.filaments.length ? slicing : null };
+    const clean = { ...f, name, model: f.model.trim(), host: f.host?.trim(), serial: f.serial?.trim().toUpperCase(), accessCode: f.accessCode?.trim(), slicing: slicing.machine && slicing.process && slicing.filaments.length ? slicing : null };
     if (existing) {
       await act("updatePrinter", existing.id, clean);
       onSaved(existing.id);
@@ -90,15 +101,18 @@ export function PrinterDialog({ id, place, onClose, onSaved }: { id: string | nu
       </>
     }>
       <div className="fg2">
-        <div className="fg"><label htmlFor="p-name">Name</label><input id="p-name" className="input" value={f.name} onChange={(e) => set("name", e.target.value)} /></div>
-        <div className="fg"><label htmlFor="p-model">Model</label><input id="p-model" className="input" list="opf-models" value={f.model} onChange={(e) => set("model", e.target.value)} /><datalist id="opf-models">{MODELS.map((m) => <option key={m} value={m} />)}</datalist></div>
+        <div className="fg"><label htmlFor="p-name">Name</label><input id="p-name" className="input" placeholder={existing ? "" : nameHint} value={f.name} onChange={(e) => set("name", e.target.value)} /></div>
+        <div className="fg"><label htmlFor="p-model">Model</label><input id="p-model" className="input" list="opf-models" placeholder="Bambu Lab A1 mini" value={f.model}
+          onChange={(e) => { const model = e.target.value; setF((x) => ({ ...x, model, ...(existing ? {} : forModel(model)) })); }} />
+          <datalist id="opf-models">{MODELS.map((m) => <option key={m} value={m} />)}</datalist></div>
       </div>
       <div className="fg">
         <label htmlFor="p-driver">Connection</label>
         <select id="p-driver" className="input" value={f.driver} onChange={(e) => {
           const driver = e.target.value as DriverKind;
-          // Choosing the Anycubic connection on a new printer: it is most likely a Kobra 3 Max.
-          setF((x) => ({ ...x, driver, ...(driver === "anycubic" && !existing && !x.model.startsWith("Anycubic") ? { model: "Anycubic Kobra 3 Max", enclosed: false } : {}) }));
+          // A model of the other maker no longer fits: clear it, and the hint shows again.
+          const otherMaker = (driver === "anycubic" && f.model.startsWith("Bambu Lab")) || (driver === "bambu" && f.model.startsWith("Anycubic"));
+          setF((x) => ({ ...x, driver, ...(!existing && otherMaker ? { model: "" } : {}) }));
         }}>
           {DRIVERS.map((d) => <option key={d.kind} value={d.kind}>{d.label}</option>)}
         </select>
