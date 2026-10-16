@@ -1027,6 +1027,12 @@ std::string AppConfig::load(bool read_only)
         set_bool("single_instance", true);
         set("opf_single_instance", "2");
     }
+    // OPF: Textured PEI, the plate the printers here come with, once over OrcaSlicer's first choice (Smooth
+    // Cool Plate); after that as chosen. 4 is btPTE, the Textured PEI Plate.
+    if (get("opf_bed_type") != "1") {
+        set("curr_bed_type", "4");
+        set("opf_bed_type", "1");
+    }
     return "";
 }
 

@@ -18,10 +18,21 @@ Prepare and Preview are OrcaSlicer's own and are kept close to upstream so its u
 - **One program**: the slicer writes its own location to `slicer.json` in OPF's settings folder, and
   OPF's desktop icon then starts the farm in the background and opens the slicer. It sets
   `OPF_FARM_STARTING=1` for the slicer, so the Farm tab waits for that farm instead of starting another.
-- **Send to farm** (`src/slic3r/GUI/OpfFarm.*`) is the print button's default action. It sends the
+- **Send plate to farm** (`src/slic3r/GUI/OpfFarm.*`) is the print button's default action. It sends the
   current plate, sliced (`.gcode.3mf`, as Export plate sliced file writes it), together with a copy of
   the project to `POST /api/v1/ui/plates`. It goes to the printer chosen in the Farm tab, or OPF
-  picks one.
+  picks one. **Send all plates** slices every plate that is not sliced yet (Slice all; the plater calls
+  `OpfFarm::slicing_finished()` when it is done), then sends them one after another; with no printer
+  picked, OPF puts each on the printer free first. The print button offers only these two and the three
+  exports: OrcaSlicer's Print and Send go straight to a printer, past the farm.
+- **Printers are added once, in the Farm tab.** There is no setup wizard on first run. The farm page sends
+  `opf_printers` with each printer's model and profile, and the slicer sets up any printer profile not set
+  up yet, with the filaments that printer comes with (`PresetBundle::apply_vendor_config`, as the wizard
+  does). The wizard is still in the menu.
+- **Sync** (both Sync buttons) reads what is loaded in the printer picked in the Farm tab from the farm
+  (`GET /api/v1/ui/printers/<id>/filaments`) and fills the filament list through OrcaSlicer's own matching
+  (`Sidebar::sync_ams_list_from_farm`), not Bambu's network.
+- **Textured PEI** is the plate type when none was chosen (and once over a saved Smooth Cool Plate).
 - **Edit** on a queued plate in the Farm tab downloads that plate's project
   (`GET /api/v1/ui/plates/<id>/project`) and opens it in Prepare. Sending it again replaces the plate
   in its place in the queue.
@@ -59,8 +70,10 @@ The page talks to the slicer with `window.wx.postMessage(JSON.stringify(message)
 | `opf_target`     | `printer`, `name`              | Send to farm goes to this printer; the button names it. |
 | `opf_new_plate`  | `printer`, `name`, `machine`   | New project in Prepare, with that printer profile.      |
 | `opf_edit_plate` | `job`, `name`, `plate`         | Opens the plate's project in Prepare.                   |
+| `opf_printers`   | `machines`: `[{model, preset}]` | Sets up printer profiles not set up yet.               |
 
-After a plate is sent the slicer shows the Farm tab and calls `window.opfShowJob(<job id>)`.
+After a plate is sent the slicer shows the Farm tab and calls `window.opfShowJob(<job id>)`; after Send all
+plates it also calls `window.opfToast(<text>)` with how many plates went where.
 
 ## Keeping up with OrcaSlicer
 

@@ -2121,6 +2121,7 @@ const char* print_select_type_key(MainFrame::PrintSelectType type)
     case MainFrame::eSendToPrinterAll:    return "send_to_printer_all";
     case MainFrame::ePrintMultiMachine:   return "print_multi_machine";
     case MainFrame::eSendToFarm:          return "send_to_farm";
+    case MainFrame::eSendAllToFarm:       return "send_all_to_farm";
     case MainFrame::eUploadGcode:         break; // Orca: no dropdown entry, never selectable
     }
     return "";
@@ -2140,6 +2141,7 @@ wxString print_select_type_label(MainFrame::PrintSelectType type)
     case MainFrame::eSendToPrinterAll:    return _L("Send all");
     case MainFrame::ePrintMultiMachine:   return _L("Send to Multi-device");
     case MainFrame::eSendToFarm:          return OpfFarm::get().send_label();
+    case MainFrame::eSendAllToFarm:       return OpfFarm::get().send_all_label();
     case MainFrame::eUploadGcode:         break; // Orca: no dropdown entry, never selectable
     }
     return _L("Print plate");
@@ -2148,7 +2150,10 @@ wxString print_select_type_label(MainFrame::PrintSelectType type)
 
 std::vector<MainFrame::PrintSelectType> MainFrame::available_print_actions() const
 {
-    // OPF: Send to farm first, for every printer.
+    // OPF: plates go to the farm, which prints them; OrcaSlicer's own Print and Send (straight to a printer,
+    // past the farm) are left out. The exports stay.
+    return {eSendToFarm, eSendAllToFarm, eExportSlicedFile, eExportAllSlicedFile, eExportGcode};
+
     std::vector<PrintSelectType> actions{eSendToFarm};
     const auto preset_bundle      = wxGetApp().preset_bundle;
     const bool use_printer_agents = wxGetApp().app_config->get_bool("use_printer_agents");
@@ -2350,6 +2355,10 @@ wxBoxSizer* MainFrame::create_side_tools()
                 m_print_btn->Enable(m_print_enable);
                 if (m_print_enable)
                     OpfFarm::get().send_current_plate();
+            }
+            else if (m_print_select == eSendAllToFarm) {
+                // OPF: slices what is not sliced yet, then sends every plate.
+                OpfFarm::get().send_all_plates();
             }
             else if (m_print_select == ePrintAll || m_print_select == ePrintPlate || m_print_select == ePrintMultiMachine)
             {
@@ -2588,6 +2597,11 @@ bool MainFrame::get_enable_print_status()
     else if (m_print_select == eSendToFarm)
     {
         enable = current_plate->is_slice_result_ready_for_print() && !is_all_plates;
+    }
+    else if (m_print_select == eSendAllToFarm)
+    {
+        // OPF: whatever is not sliced yet is sliced first.
+        enable = can_reslice();
     }
 
     BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << boost::format(": m_print_select %1%, enable= %2% ")%m_print_select %enable;
@@ -4393,9 +4407,9 @@ void MainFrame::set_print_button_to_default(PrintSelectType select_type)
 
 void MainFrame::refresh_send_to_farm()
 {
-    if (m_print_select != eSendToFarm || m_print_btn == nullptr)
+    if ((m_print_select != eSendToFarm && m_print_select != eSendAllToFarm) || m_print_btn == nullptr)
         return;
-    m_print_btn->SetLabel(print_select_type_label(eSendToFarm));
+    m_print_btn->SetLabel(print_select_type_label(m_print_select));
     Layout();
     fit_tab_labels();
 }

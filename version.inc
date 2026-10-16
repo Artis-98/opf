@@ -18,7 +18,7 @@ set(SLIC3R_VERSION "02.08.01.55")
 
 # OPF: the version people see (window, About, installer, downloads). OrcaSlicer's own version above stays,
 # because profiles and project files are checked against it.
-set(OPF_VERSION "0.2.0")
+set(OPF_VERSION "0.2.1")
 string(REGEX MATCH "^([0-9]+)\\.([0-9]+)\\.([0-9]+)" OPF_VERSION_MATCH ${OPF_VERSION})
 set(OPF_VERSION_MAJOR ${CMAKE_MATCH_1})
 set(OPF_VERSION_MINOR ${CMAKE_MATCH_2})

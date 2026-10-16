@@ -357,7 +357,8 @@ public:
         eUploadGcode         = 7,
         eExportAllSlicedFile = 8,
         ePrintMultiMachine   = 9,
-        eSendToFarm          = 10 // OPF
+        eSendToFarm          = 10, // OPF
+        eSendAllToFarm       = 11  // OPF
     };
 
     void update_layout();

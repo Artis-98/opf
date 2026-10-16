@@ -200,6 +200,7 @@
 #include "wxExtensions.hpp"
 #include "../Utils/PrintHost.hpp"
 #include "MainFrame.hpp"
+#include "OpfFarm.hpp" // OPF
 #ifdef SLIC3R_CAD
 #include "slic3r/GUI/CAD/DesignPanel.hpp"
 #endif
@@ -3146,9 +3147,10 @@ Sidebar::Sidebar(Plater *parent)
         std::string str_bed_type = app_config->get("curr_bed_type");
         int bed_type_value = atoi(str_bed_type.c_str());
         // hotfix: btDefault is added as the first one in BedType, and app_config should not be btDefault
-        if (bed_type_value == 0) {
-            app_config->set("curr_bed_type", "1");
-            bed_type_value = 1;
+        // OPF: Textured PEI when nothing was chosen yet, the plate printers here come with.
+        if (bed_type_value <= 0 || bed_type_value >= btCount) {
+            app_config->set("curr_bed_type", std::to_string(int(btPTE)));
+            bed_type_value = int(btPTE);
         }
 
         int bed_type_idx = bed_type_value - 1;
@@ -3350,7 +3352,7 @@ Sidebar::Sidebar(Plater *parent)
 
     ams_btn = new ScalableButton(p->m_panel_filament_title, wxID_ANY, "ams_fila_sync", wxEmptyString, wxDefaultSize, wxDefaultPosition,
                                                  wxBU_EXACTFIT | wxNO_BORDER, false, 16); // ORCA match icon size with other icons as 16x16
-    ams_btn->SetToolTip(_L("Synchronize filament list from AMS"));
+    ams_btn->SetToolTip(_L("Fill the filament list with what is loaded in the printer picked in the Farm tab")); // OPF
     ams_btn->Bind(wxEVT_BUTTON, [this](wxCommandEvent &e) {
         sync_ams_list();
     });
@@ -6291,6 +6293,10 @@ void Sidebar::load_ams_list(MachineObject* obj)
 
 void Sidebar::sync_ams_list(bool is_from_big_sync_btn)
 {
+    // OPF: the farm knows what is loaded in every printer; it fills the filament list, not Bambu's network.
+    OpfFarm::get().sync_filaments();
+    return;
+
     wxBusyCursor cursor;
     // Force load ams list
     auto obj = wxGetApp().getDeviceManager()->get_selected_machine();
@@ -6543,6 +6549,58 @@ void Sidebar::sync_ams_list(bool is_from_big_sync_btn)
     BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << "finish pop_finsish_sync_ams_dialog";
 }
 
+// OPF: the Sync buttons with a printer picked in the Farm tab. What the farm says is loaded in it is matched
+// to filament presets by OrcaSlicer's own sync (the exact preset when the printer reports its filament id,
+// otherwise the generic one of the material) and becomes the filament list, slot by slot.
+void Sidebar::sync_ams_list_from_farm(std::map<int, DynamicPrintConfig> list, const std::string &device)
+{
+    wxBusyCursor cursor;
+    PresetBundle &bundle = *wxGetApp().preset_bundle;
+    bundle.filament_ams_list = std::move(list);
+    p->ams_list_device = device;
+    for (auto &entry : bundle.filament_ams_list)
+        entry.second.set_key_value("filament_changed", new ConfigOptionBool{true});
+
+    std::vector<std::string> color_before_sync;
+    std::vector<bool>        is_support_before;
+    ConfigOptionStrings     *color_opt = bundle.project_config.option<ConfigOptionStrings>("filament_colour");
+    for (int i = 0; i < p->combos_filament.size(); ++i) {
+        is_support_before.push_back(is_support_filament(i));
+        color_before_sync.push_back(color_opt->values[i]);
+    }
+    MergeFilamentInfo                                          merge_info;
+    std::vector<std::pair<DynamicPrintConfig *, std::string>> unknowns;
+    std::map<int, AMSMapInfo>                                  maps;
+    const unsigned int n = bundle.sync_ams_list(unknowns, false, maps, false, merge_info, false);
+    if (n == 0) {
+        MessageDialog dlg(this, _L("No filament the farm knows of matches a filament preset for this printer, so the list was left as it is."),
+                          _L("Sync filaments with the farm"), wxOK);
+        dlg.ShowModal();
+        return;
+    }
+    wxGetApp().plater()->on_filament_count_change(n);
+    for (auto &c : p->combos_filament)
+        c->update();
+    update_filaments_area_height();
+    for (int i = 0; i < p->combos_filament.size(); ++i) {
+        if (i >= color_before_sync.size())
+            auto_calc_flushing_volumes(i);
+        else if (color_before_sync[i] != color_opt->values[i] && wxGetApp().app_config->get("auto_calculate_flush") != "disabled")
+            auto_calc_flushing_volumes(i);
+        else if (is_support_filament(i) != is_support_before[i] && wxGetApp().app_config->get("auto_calculate_flush") == "all")
+            auto_calc_flushing_volumes(i);
+    }
+    Layout();
+    wxGetApp().get_tab(Preset::TYPE_FILAMENT)->select_preset(bundle.filament_presets[0]);
+    bundle.export_selections(*wxGetApp().app_config);
+    update_dynamic_filament_list();
+    clear_combos_filament_badge();
+    for (size_t i = 0; i < p->combos_filament.size() && i < n; ++i) {
+        p->combos_filament[i]->SetToolTip(_L("Filament and colour from the farm: what is loaded in the printer picked in the Farm tab."));
+        p->combos_filament[i]->set_sync_badge(true);
+    }
+}
+
 
 bool Sidebar::should_show_SEMM_buttons()
 {
@@ -6706,6 +6764,10 @@ bool Sidebar::is_multifilament()
 }
 
 void Sidebar::deal_btn_sync() {
+    // OPF: the farm knows what is loaded in every printer; it fills the filament list, not Bambu's network.
+    OpfFarm::get().sync_filaments();
+    return;
+
     m_begin_sync_printer_status = true;
     bool only_external_material;
     // Manual "sync machine" button: is_manual=true so an H2C pops the MultiNozzleSyncDialog to pick a nozzle option.
@@ -13533,6 +13595,8 @@ void Plater::priv::on_process_completed(SlicingProcessCompletedEvent &evt)
         this->preview->reload_print(false);
         q->mark_plate_toolbar_image_dirty();
         q->SetDropTarget(new PlaterDropTarget(*main_frame, *q));
+        // OPF: Send all plates waits for this.
+        wxGetApp().CallAfter([] { OpfFarm::get().slicing_finished(); });
     }
     else
     {

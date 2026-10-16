@@ -2,7 +2,10 @@
 #define slic3r_OpfFarm_hpp_
 
 #include <chrono>
+#include <functional>
 #include <string>
+#include <utility>
+#include <vector>
 
 #include <boost/filesystem/path.hpp>
 #include <wx/string.h>
@@ -32,6 +35,17 @@ public:
     void send_current_plate();
     // The print button's label for Send to farm.
     wxString send_label() const;
+    // Sends every plate with something on it, one after another: to the printer picked in the Farm tab,
+    // or, with none picked, each to whichever printer OPF finds free first. Plates not sliced yet are
+    // sliced first (Slice all), and sent when the last one is done.
+    void send_all_plates();
+    // The print button's label for Send all plates.
+    wxString send_all_label() const;
+    // The plater has finished slicing (every plate, for Slice all). Sends the plates Send all was waiting for.
+    void slicing_finished();
+    // The Sync buttons next to the printer and the filaments: fill the filament list with what the farm
+    // says is loaded in the printer picked in the Farm tab.
+    void sync_filaments();
 
     // Starts the farm service without a window, through OPF's launcher. True when it is starting; false
     // when OPF is not found on this computer.
@@ -49,6 +63,18 @@ private:
     void on_sent(const std::string& body);
     // The queued plate the open project was opened from, while it is still that project.
     std::string editing_job() const;
+    // Uploads one sliced plate with the project; done gets the farm's answer, failed what went wrong.
+    void upload_plate(int plate_idx, const std::string& name, const boost::filesystem::path& sliced,
+                      const boost::filesystem::path& project, bool replace_edited,
+                      std::function<void(const std::string& body)> done, std::function<void(const wxString& error)> failed);
+    // Send all plates, once every plate is sliced: the project once, then the plates in turn.
+    void start_sending_all();
+    void send_next_of_all();
+    void finish_sending_all(const wxString& error);
+    // The farm's printers (model, printer profile), from the farm page: sets up the printer profile of
+    // any not set up yet, with the filaments it comes with, as the setup wizard would.
+    void install_printers(const std::vector<std::pair<std::string, std::string>>& machines);
+    void apply_filaments(const std::string& printer, const std::string& body);
 
     std::string                           m_target_printer;
     std::string                           m_target_name;
@@ -56,6 +82,13 @@ private:
     boost::filesystem::path               m_editing_path;
     bool                                  m_sending{false};
     std::chrono::steady_clock::time_point m_started_at{};
+    // Send all: waiting for Slice all since, the plates still to send, and where the ones sent went.
+    std::chrono::steady_clock::time_point m_send_all_asked{};
+    bool                                  m_send_all_waiting{false};
+    std::vector<int>                      m_send_queue;
+    boost::filesystem::path               m_send_project;
+    std::vector<std::string>              m_sent_jobs;
+    std::vector<std::string>              m_sent_printers;
 };
 
 } // namespace GUI

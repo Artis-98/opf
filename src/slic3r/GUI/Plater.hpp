@@ -221,6 +221,8 @@ public:
     void load_ams_list(MachineObject* obj);
     std::map<int, DynamicPrintConfig> build_filament_ams_list(MachineObject* obj);
     void sync_ams_list(bool is_from_big_sync_btn = false);
+    // OPF: the filament list from what the farm says is loaded in a printer (OpfFarm::sync_filaments).
+    void sync_ams_list_from_farm(std::map<int, DynamicPrintConfig> list, const std::string &device);
     bool sync_extruder_list();
     bool is_fila_switch_ready();
     void reset_fila_switch();

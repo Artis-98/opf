@@ -6284,7 +6284,7 @@ void GUI_App::check_new_version_sf(bool show_tips, int by_user)
     // OPF: OrcaSlicer's update check would offer OrcaSlicer. The farm watches for new OPF releases and
     // offers them; Help > Check for Updates opens OPF's download page.
     if (by_user)
-        wxLaunchDefaultBrowser("https://artis-98.github.io/opf/");
+        wxLaunchDefaultBrowser("https://opf.iiteg.com/");
     return;
 
     AppConfig* app_config = wxGetApp().app_config;
@@ -9890,6 +9890,11 @@ void GUI_App::window_pos_center(wxTopLevelWindow *window)
 
 bool GUI_App::config_wizard_startup()
 {
+    // OPF: no setup wizard. Printers are added once, in the Farm tab, and the farm page tells the slicer, which
+    // sets up each one's printer profile with its filaments (OpfFarm::install_printers). The wizard is still
+    // in the menu for anything unusual.
+    return false;
+
     if (!m_app_conf_exists || preset_bundle->printers.only_default_printers()) {
         BOOST_LOG_TRIVIAL(info) << "run wizard...";
         run_wizard(ConfigWizard::RR_DATA_EMPTY);
