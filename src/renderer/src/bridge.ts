@@ -13,6 +13,8 @@ declare global {
     wx?: { postMessage(message: string): void };
     /** OPF Slicer calls this after sending a plate, to show it in its printer's queue. */
     opfShowJob?: (jobId: string) => void;
+    /** OPF Slicer calls this to say something in the farm page, such as how many plates went where. */
+    opfToast?: (text: string, error?: boolean) => void;
   }
 }
 

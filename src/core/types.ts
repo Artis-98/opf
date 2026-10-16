@@ -44,6 +44,10 @@ export interface FilamentSlot {
   material: string | null;
   /** 0–100, only known for spools with an RFID tag. */
   remainPct: number | null;
+  /** Bambu's filament id for the spool ("GFA00" is Bambu PLA Basic), when the printer reports one. */
+  filamentId?: string;
+  /** The plain material ("PLA") when `material` is a product name ("PLA Basic"). */
+  type?: string;
 }
 
 export interface AmsUnit {

@@ -269,7 +269,7 @@ export function loadedFilaments(farm: FarmService, printerId: string) {
   if (!p) return null;
   const l = live[printerId];
   const slots = [...(l?.ams ?? []).flatMap((u) => u.slots), ...(l?.external ? [l.external] : [])]
-    .map((s) => ({ unit: s.unit, slot: s.slot, color: s.color, material: s.material }));
+    .map((s) => ({ unit: s.unit, slot: s.slot, color: s.color, material: s.material, type: s.type ?? s.material, filamentId: s.filamentId ?? null }));
   return { printer: { id: p.id, name: p.name, model: p.model }, live: !!l && l.status !== "offline", slots };
 }
 

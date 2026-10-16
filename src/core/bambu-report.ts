@@ -36,7 +36,13 @@ export function trayColor(v: unknown): string | null {
 function tray(t: Json, unit: number, slot: number): FilamentSlot {
   const material = (typeof t.tray_sub_brands === "string" && t.tray_sub_brands) || (typeof t.tray_type === "string" && t.tray_type) || null;
   const remain = num(t.remain);
-  return { unit, slot, color: trayColor(t.tray_color), material, remainPct: remain !== null && remain >= 0 ? remain : null };
+  // For OPF Slicer's Sync: the exact filament, and the plain material behind a product name.
+  const filamentId = typeof t.tray_info_idx === "string" && t.tray_info_idx ? t.tray_info_idx : null;
+  const type = typeof t.tray_type === "string" && t.tray_type ? t.tray_type : null;
+  return {
+    unit, slot, color: trayColor(t.tray_color), material, remainPct: remain !== null && remain >= 0 ? remain : null,
+    ...(filamentId ? { filamentId } : {}), ...(type && type !== material ? { type } : {}),
+  };
 }
 
 export function statusOf(p: Json): PrinterStatus {

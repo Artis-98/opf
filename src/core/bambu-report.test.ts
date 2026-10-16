@@ -45,11 +45,15 @@ describe("liveFromReport", () => {
     expect(l.ams).toHaveLength(1);
     expect(l.ams![0]).toMatchObject({ id: 0, humidity: 23, tempC: 26.1 });
     expect(l.ams![0].slots).toEqual([
-      { unit: 0, slot: 0, color: "#161616", material: "PLA Basic", remainPct: 64 },
+      { unit: 0, slot: 0, color: "#161616", material: "PLA Basic", remainPct: 64, type: "PLA" },
       { unit: 0, slot: 1, color: "#FFFFFF", material: "PETG", remainPct: null },
       { unit: 0, slot: 2, color: null, material: null, remainPct: null },
       { unit: 0, slot: 3, color: "#00AE42", material: "PLA", remainPct: 12 },
     ]);
+    // Bambu's own filament id, for OPF Slicer's Sync, when the printer reports it.
+    const a = full.print.ams;
+    const withId = liveFromReport({ print: { ...full.print, ams: { ...a, ams: [{ ...a.ams[0], tray: [{ ...a.ams[0].tray[0], tray_info_idx: "GFA00" }] }] } } });
+    expect(withId.ams![0].slots[0]).toMatchObject({ filamentId: "GFA00", type: "PLA" });
     expect(l.activeSlot).toBe("0:1");
     expect(l.external).toBeNull();
   });

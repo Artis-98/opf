@@ -93,6 +93,10 @@ function Shell() {
     return () => { window.opfShowJob = undefined; };
   }, []);
   useEffect(() => {
+    window.opfToast = (text, error) => toast(text, error);
+    return () => { window.opfToast = undefined; };
+  }, [toast]);
+  useEffect(() => {
     if (!shown) return;
     const printerId = Object.keys(snap.data.queues).find((id) => snap.data.queues[id].some((j) => j.id === shown));
     if (!printerId) return; // not in the snapshot yet
