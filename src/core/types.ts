@@ -34,6 +34,19 @@ export interface PrinterConfig {
   printOptions?: Partial<Record<"bedLevelling" | "flowCalibration" | "vibrationCompensation" | "timelapse", boolean>>;
 }
 
+/** A printer found on the local network by Add a printer's search (src/main/discover.ts). */
+export interface FoundPrinter {
+  driver: "bambu" | "anycubic";
+  host: string;
+  /** The name it was given on its own screen, when it says. */
+  name: string | null;
+  /** OPF's model name ("Bambu Lab A1 mini"), when the code it reports is known. */
+  model: string | null;
+  serial?: string;
+  /** Something to know before adding it, such as "in cloud mode". */
+  note?: string;
+}
+
 export interface FilamentSlot {
   /** AMS unit number, or -1 for the external spool. */
   unit: number;

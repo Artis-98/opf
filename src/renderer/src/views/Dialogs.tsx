@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useFarm } from "../state";
 import { opf } from "../bridge";
-import type { DriverKind, PrinterConfig, Settings } from "../../../core/types";
+import type { DriverKind, FoundPrinter, PrinterConfig, Settings } from "../../../core/types";
 import { Icon } from "../components/icons";
 import type { Change } from "../../../preload/api";
 
@@ -64,6 +64,28 @@ export function PrinterDialog({ id, place, onClose, onSaved }: { id: string | nu
     name: "", model: "", driver: "bambu", host: "", serial: "", accessCode: "", enclosed: true, slicing: null,
   });
   const [confirmDelete, setConfirmDelete] = useState(false);
+  // Printers found on the network (a new printer only): null while searching.
+  const [found, setFound] = useState<FoundPrinter[] | null>(null);
+  const search = async () => {
+    setFound(null);
+    try {
+      setFound((await opf.discover?.()) ?? []);
+    } catch {
+      setFound([]);
+    }
+  };
+  useEffect(() => {
+    if (!existing && opf.discover) void search();
+    // Once, when the dialog opens; Search again is the button.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const known = new Set(snap.data.printers.flatMap((p) => [p.serial?.toUpperCase(), p.host].filter((x): x is string => !!x)));
+  const fresh = (found ?? []).filter((fp) => !known.has(fp.host) && !(fp.serial && known.has(fp.serial)));
+  const pickFound = (fp: FoundPrinter) => setF((x) => ({
+    ...x, ...(fp.model ? forModel(fp.model) : {}), driver: fp.driver, host: fp.host,
+    name: fp.name ?? x.name, model: fp.model ?? (x.model.startsWith(fp.driver === "bambu" ? "Bambu Lab" : "Anycubic") ? x.model : ""),
+    serial: fp.serial && fp.driver === "bambu" ? fp.serial : x.serial,
+  }));
   const set = <K extends keyof typeof f>(k: K, v: (typeof f)[K]) => setF((x) => ({ ...x, [k]: v }));
   const slicing = f.slicing ?? { machine: "", process: "", filaments: [] };
   const setSlicing = (patch: Partial<typeof slicing>) => set("slicing", { ...slicing, ...patch });
@@ -100,6 +122,27 @@ export function PrinterDialog({ id, place, onClose, onSaved }: { id: string | nu
         <button className="btn pri" onClick={save}>{existing ? "Save" : "Add printer"}</button>
       </>
     }>
+      {!existing && opf.discover && (
+        <div className="found">
+          <div className="found-head">
+            <b>On this network</b>
+            <span className="muted">{found === null ? "Looking for Bambu Lab and Anycubic printers…" : fresh.length ? "Pick one to fill in its details." : "None found that are not added yet. Fill in the details below."}</span>
+            <button className="btn sm ghost" disabled={found === null} onClick={() => void search()}>{found === null ? "Searching…" : "Search again"}</button>
+          </div>
+          {fresh.length > 0 && (
+            <div className="found-list">
+              {fresh.map((fp) => (
+                <button key={fp.host} className={`found-item ${f.host === fp.host ? "on" : ""}`} onClick={() => pickFound(fp)}>
+                  <b>{fp.name ?? fp.model ?? "Printer"}</b>
+                  <span>{[fp.name ? fp.model : null, fp.host].filter(Boolean).join(" · ")}</span>
+                  {fp.note && <span className="found-note">{fp.note}</span>}
+                </button>
+              ))}
+            </div>
+          )}
+          {f.driver === "bambu" && fresh.some((fp) => fp.host === f.host) && <span className="help">Now type the LAN access code from the printer's screen: Settings → Network.</span>}
+        </div>
+      )}
       <div className="fg2">
         <div className="fg"><label htmlFor="p-name">Name</label><input id="p-name" className="input" placeholder={existing ? "" : nameHint} value={f.name} onChange={(e) => set("name", e.target.value)} /></div>
         <div className="fg"><label htmlFor="p-model">Model</label><input id="p-model" className="input" list="opf-models" placeholder="Bambu Lab A1 mini" value={f.model}

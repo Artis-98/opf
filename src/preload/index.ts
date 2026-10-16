@@ -22,6 +22,7 @@ const api: OpfApi = {
   },
   whatsNew: () => ipcRenderer.invoke("opf:whatsNew"),
   restart: () => ipcRenderer.invoke("opf:restart"),
+  discover: () => ipcRenderer.invoke("opf:discover"),
   openFull: () => ipcRenderer.invoke("opf:openFull"),
   isDemo: false,
 };

@@ -14,6 +14,7 @@ import { startHost, type Host } from "./host";
 import type { UpdateHooks } from "./api";
 import { changesSinceLastRun, checkForRelease, checkForUpdate, isCheckout, restartThroughLauncher, type Change, type UpdateState } from "./updater";
 import { slicerExe, startMini, type Mini } from "./mini";
+import { discoverPrinters } from "./discover";
 import icon from "../../resources/icon.png?asset";
 import trayIcon from "../../resources/tray.png?asset";
 
@@ -151,6 +152,7 @@ app.whenReady().then(() => {
   farm.subscribe((s) => broadcast("opf:update", s));
 
   ipcMain.handle("opf:snapshot", () => farm.snapshot());
+  ipcMain.handle("opf:discover", () => discoverPrinters());
   ipcMain.handle("opf:act", (_e, name: string, args: unknown[]) => host.runAction(name, args));
 
   ipcMain.handle("opf:openModels", async () => {

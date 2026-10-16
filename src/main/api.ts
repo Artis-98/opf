@@ -28,6 +28,7 @@ import { newId, type FarmService } from "../core/farm";
 import type { PlateJob, PrinterConfig } from "../core/types";
 import type { Result } from "../preload/api";
 import { readPlateFile } from "./plate-file";
+import { discoverPrinters } from "./discover";
 import type { Change, UpdateState } from "./updater";
 
 export interface ServerOptions {
@@ -323,6 +324,8 @@ export function startApi(farm: FarmService, opts: ServerOptions): Server | null 
           return;
         }
         if (what === "plates" && req.method === "POST") return await receivePlate(req, res, farm, opts);
+        // Add a printer's search, from the farm page in OPF Slicer.
+        if (what === "discover" && req.method === "GET") return send(res, 200, await discoverPrinters());
         // OPF Slicer's Sync button: what is loaded in one printer, slot by slot.
         const fil = /^printers\/([^/]+)\/filaments$/.exec(what);
         if (fil && req.method === "GET") {

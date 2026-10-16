@@ -1,7 +1,7 @@
 // What the window can ask of OPF. Implemented by Electron's preload for the
 // app, and by an in-browser farm of simulated printers for the demo.
 
-import type { Snapshot } from "../core/types";
+import type { FoundPrinter, Snapshot } from "../core/types";
 
 export interface ModelFile {
   name: string;
@@ -55,6 +55,8 @@ export interface OpfApi {
   whatsNew(): Promise<Change[]>;
   /** Close, update through the launcher, and open again. */
   restart(): Promise<void>;
+  /** Printers on the local network, for Add a printer (about seven seconds). */
+  discover?(): Promise<FoundPrinter[]>;
   /** From the small OPF by the clock: open the full OPF (OPF Slicer, or the farm window). */
   openFull?: () => Promise<void>;
   isDemo: boolean;

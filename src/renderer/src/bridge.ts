@@ -5,6 +5,7 @@
 import { demoFactory, demoFarm } from "../../core/demo";
 import { FarmService } from "../../core/farm";
 import type { Change, OpfApi, Result, UpdateInfo } from "../../preload/api";
+import type { FoundPrinter } from "../../core/types";
 
 declare global {
   interface Window {
@@ -47,6 +48,11 @@ function browserDemo(): OpfApi {
     onUpdateReady: () => () => {},
     whatsNew: async () => [],
     restart: async () => {},
+    // The demo finds two made-up printers, after a moment, the way a real search would.
+    discover: () => new Promise((resolve) => setTimeout(() => resolve([
+      { driver: "bambu", host: "192.168.1.61", name: "Bench A1", model: "Bambu Lab A1", serial: "03919D000000001" },
+      { driver: "anycubic", host: "192.168.1.70", name: null, model: "Anycubic Kobra 3 Max", serial: "DEMO-0000-0000-0001" },
+    ]), 1500)),
     isDemo: true,
   };
 }
@@ -90,6 +96,7 @@ function httpBridge(): OpfApi {
       await fetch(api("act"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: "replaceData", args: [demoFarm().data] }) });
     },
     updateState: () => get<UpdateInfo | null>("update", null),
+    discover: () => get<FoundPrinter[]>("discover", []),
     onUpdateReady: (cb) => {
       const t = setInterval(async () => {
         const u = await get<UpdateInfo | null>("update", null);
