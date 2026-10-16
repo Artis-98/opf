@@ -66,7 +66,7 @@ git merge upstream/main
 
 ## Licence and credits
 
-OPF is free software under the GNU Affero General Public License 3.0, copyright SIA IITEG. The slicer is
+OPF is free software under the GNU Affero General Public License 3.0, copyright IITEG. The slicer is
 OrcaSlicer's work, which grew from Bambu Studio, PrusaSlicer and Slic3r, all under the same licence; their
 credits stay in the About box. OrcaSlicer's own readme is [`README.orcaslicer.md`](README.orcaslicer.md).
 OPF is not affiliated with Bambu Lab, Anycubic or OrcaSlicer. Licences of everything OPF is built on:

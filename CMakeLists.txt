@@ -1335,7 +1335,7 @@ configure_file(${LIBDIR}/dev-utils/platform/unix/fhs.hpp.in ${LIBDIR_BIN}/dev-ut
 
 # OPF: the installer is OPF's: its name, version, folder, shortcuts and Add/Remove Programs entry.
 set (CPACK_PACKAGE_NAME "OPF")
-set (CPACK_PACKAGE_VENDOR "SIA IITEG")
+set (CPACK_PACKAGE_VENDOR "IITEG")
 set (CPACK_PACKAGE_VERSION_MAJOR "${OPF_VERSION_MAJOR}")
 set (CPACK_PACKAGE_VERSION_MINOR "${OPF_VERSION_MINOR}")
 set (CPACK_PACKAGE_VERSION_PATCH "${OPF_VERSION_PATCH}")

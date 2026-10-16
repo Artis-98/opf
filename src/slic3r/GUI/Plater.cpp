@@ -3872,7 +3872,11 @@ void Sidebar::update_all_preset_comboboxes()
 
                    set_bed_type_accord_combox((BedType) bed_type_value);
                 } else {
-                    BedType bed_type = preset_bundle.printers.get_edited_preset().get_default_bed_type(&preset_bundle);
+                    // OPF: Textured PEI, the plate the printers here come with, when the printer takes it; until
+                    // someone picks another for this printer. Otherwise the printer's own default.
+                    BedType bed_type = btPTE;
+                    if (std::find(m_cur_combox_bed_types.begin(), m_cur_combox_bed_types.end(), btPTE) == m_cur_combox_bed_types.end())
+                        bed_type = preset_bundle.printers.get_edited_preset().get_default_bed_type(&preset_bundle);
                     set_bed_type_accord_combox(bed_type);
                 }
             } else {
@@ -14541,7 +14545,7 @@ void Plater::priv::update_title_dirty_status()
     wxGetApp().mainframe->SetTitle(title);
     wxGetApp().mainframe->update_title_colour_after_set_title();
 #else
-    wxGetApp().mainframe->SetTitle(title + " - OrcaSlicer");
+    wxGetApp().mainframe->SetTitle(title + " - " + SLIC3R_APP_FULL_NAME); // OPF
     wxGetApp().mainframe->topbar()->SetTitle(title);
 #endif    
 }

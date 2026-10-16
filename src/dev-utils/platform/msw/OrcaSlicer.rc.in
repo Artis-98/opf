@@ -6,13 +6,13 @@ PRODUCTVERSION @OPF_VERSION_MAJOR@,@OPF_VERSION_MINOR@,@OPF_VERSION_PATCH@,0
  {
   BLOCK "040904E4"
   {
-   VALUE "CompanyName", "SIA IITEG"
+   VALUE "CompanyName", "IITEG"
    VALUE "FileDescription", "Open Print Farm"
    VALUE "FileVersion", "@OPF_VERSION@"
    VALUE "ProductName", "OPF (Open Print Farm)"
    VALUE "ProductVersion", "@OPF_VERSION@"
    VALUE "InternalName", "OPF"
-   VALUE "LegalCopyright", "Copyright 2026 SIA IITEG. Based on OrcaSlicer, AGPL-3.0."
+   VALUE "LegalCopyright", "Copyright 2026 IITEG. Based on OrcaSlicer, AGPL-3.0."
    VALUE "OriginalFilename", "OPF.exe"
   }
  }
