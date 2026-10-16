@@ -4409,7 +4409,7 @@ void MainFrame::refresh_send_to_farm()
 {
     if ((m_print_select != eSendToFarm && m_print_select != eSendAllToFarm) || m_print_btn == nullptr)
         return;
-    m_print_btn->SetLabel(print_select_type_label(m_print_select));
+    m_print_btn->SetLabel(print_select_type_label(static_cast<PrintSelectType>(m_print_select)));
     Layout();
     fit_tab_labels();
 }
