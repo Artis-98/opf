@@ -88,6 +88,15 @@ function Shell() {
     if (embedded === "farm") toSlicer({ command: "opf_printers", machines: JSON.parse(machines) });
   }, [machines]);
 
+  // In OPF Slicer: the printers that can take a plate now, so with none picked the print button still names
+  // the printer when only one of them fits the plate's printer profile. Older slicers ignore it.
+  const online = JSON.stringify(snap.data.printers
+    .filter((p) => snap.live[p.id] && snap.live[p.id].status !== "offline")
+    .map((p) => ({ id: p.id, name: p.name, model: p.model })));
+  useEffect(() => {
+    if (embedded === "farm") toSlicer({ command: "opf_online", printers: JSON.parse(online) });
+  }, [online]);
+
   useEffect(() => {
     window.opfShowJob = (id) => setShown(id);
     return () => { window.opfShowJob = undefined; };
