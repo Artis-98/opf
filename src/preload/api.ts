@@ -34,6 +34,8 @@ export interface Change {
 export interface UpdateInfo {
   behind: number;
   changes: Change[];
+  /** An installed OPF: the page with the new version's installer. restart() opens it. */
+  download?: string;
 }
 
 export interface OpfApi {

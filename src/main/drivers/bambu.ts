@@ -20,6 +20,7 @@ import { Client as FtpClient } from "basic-ftp";
 import type { Emit, PrinterDriver, StartOptions } from "../../core/driver";
 import { amsMapping, liveFromReport, mergeReport } from "../../core/bambu-report";
 import { matchFilaments, slotsForStart } from "../../core/filament";
+import { DEFAULT_PRINT_OPTIONS } from "../../core/print-options";
 import type { LiveState, PlateJob, PrinterConfig } from "../../core/types";
 
 type Json = Record<string, unknown>;
@@ -125,6 +126,7 @@ export class BambuDriver implements PrinterDriver {
       return;
     }
     const md5 = await fileMd5(job.file);
+    const print = opts.print ?? DEFAULT_PRINT_OPTIONS;
     this.command("project_file", {
       param: `Metadata/plate_${job.plate ?? 1}.gcode`,
       project_id: "0",
@@ -134,11 +136,13 @@ export class BambuDriver implements PrinterDriver {
       subtask_name: job.name,
       url: `file:///sdcard/${remote}`,
       md5,
-      timelapse: false,
+      timelapse: print.timelapse,
       bed_type: "auto",
-      bed_levelling: true,
-      flow_cali: false,
-      vibration_cali: false,
+      // Bambu Studio spells it with one l; OPF used to send two. Both, so either firmware reads it.
+      bed_leveling: print.bedLevelling,
+      bed_levelling: print.bedLevelling,
+      flow_cali: print.flowCalibration,
+      vibration_cali: print.vibrationCompensation,
       layer_inspect: false,
       use_ams: hasAms && mapping.every((m) => m !== 254),
       ams_mapping: mapping,

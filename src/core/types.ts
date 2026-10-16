@@ -30,6 +30,8 @@ export interface PrinterConfig {
   slicing?: { machine: string; process: string; filaments: string[] } | null;
   /** For a simulated printer: what is loaded in its AMS. */
   sim?: { ams: { color: string; material: string }[] } | null;
+  /** What the printer does before each plate (bed levelling, flow calibration…). Unset: OPF's defaults. */
+  printOptions?: Partial<Record<"bedLevelling" | "flowCalibration" | "vibrationCompensation" | "timelapse", boolean>>;
 }
 
 export interface FilamentSlot {

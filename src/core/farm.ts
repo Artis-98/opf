@@ -6,6 +6,7 @@
 
 import { wrongPrinter } from "./assign";
 import { emptyLive, type DriverFactory, type PrinterDriver, type StartOptions } from "./driver";
+import { printOptions } from "./print-options";
 import type { FarmData, InboxItem, LiveState, PlateJob, PrinterConfig, Settings, SlicerInfo, Snapshot } from "./types";
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -379,7 +380,7 @@ export class FarmService {
     const job = q[0];
     if (!job.file && p.driver !== "simulator") throw new Error("Slice this plate before sending it. It only has an estimate.");
     this.checkFits(job, printerId);
-    await this.drivers.get(printerId)!.start(job, opts);
+    await this.drivers.get(printerId)!.start(job, { ...opts, print: printOptions(p) });
     q.shift();
     this.data.current[printerId] = job;
     this.changed(true);

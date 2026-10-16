@@ -4,6 +4,7 @@ import { opf } from "../bridge";
 import { schedulePrinter, type Slot } from "../../../core/schedule";
 import { filamentWarning, matchFilaments } from "../../../core/filament";
 import { wrongPrinter } from "../../../core/assign";
+import { PRINT_OPTIONS, printOptions, printOptionsFor } from "../../../core/print-options";
 import type { InboxItem, PlateJob, PrinterConfig, PrinterStatus, Snapshot } from "../../../core/types";
 import { PlateThumb, PrinterArt } from "../components/PrinterArt";
 import { Icon } from "../components/icons";
@@ -292,6 +293,27 @@ function NothingSelected({ setSel }: { setSel: (id: string) => void; now: Date }
   );
 }
 
+/** The tick boxes the printer's own app shows when sending a print, kept per printer. */
+function PrintOptionsBlock({ p }: { p: PrinterConfig }) {
+  const { act } = useFarm();
+  const keys = printOptionsFor(p.driver);
+  if (!keys.length) return null;
+  const chosen = printOptions(p);
+  return (
+    <div className="insp-sec">
+      <div className="qhead"><h3>Before each print</h3><span>For every plate on this printer</span></div>
+      <div className="popts">
+        {PRINT_OPTIONS.filter((o) => keys.includes(o.key)).map((o) => (
+          <label key={o.key} className={`popt ${chosen[o.key] ? "on" : ""}`} title={o.hint}>
+            <input type="checkbox" checked={chosen[o.key]} onChange={(e) => act("updatePrinter", p.id, { printOptions: { ...chosen, [o.key]: e.target.checked } })} />
+            {o.label}
+          </label>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function Inspector({ id, now, onAddPlate, onEdit, onEditPlate, flash }: {
   id: string; now: Date; onAddPlate: (id: string) => void; onEdit: (id: string) => void; onEditPlate?: (job: PlateJob) => void; flash?: string | null;
 }) {
@@ -413,6 +435,7 @@ function Inspector({ id, now, onAddPlate, onEdit, onEditPlate, flash }: {
         </div>
       </div>
       <div className="insp-sec">{liveBlock}</div>
+      <PrintOptionsBlock p={p} />
       {allSlots.length > 0 && (
         <div className="insp-sec">
           <div className="qhead"><h3>Filament</h3><span>{live?.ams.length ? `AMS${live.ams[0].humidity != null ? ` · ${live.ams[0].humidity}% humidity` : ""}` : "Spool"}</span></div>

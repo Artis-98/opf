@@ -12,7 +12,7 @@ import { makeDriverFactory } from "./drivers";
 import { slicePlate } from "./slicer";
 import { startHost, type Host } from "./host";
 import type { UpdateHooks } from "./api";
-import { changesSinceLastRun, checkForUpdate, isCheckout, restartThroughLauncher, type Change, type UpdateState } from "./updater";
+import { changesSinceLastRun, checkForRelease, checkForUpdate, isCheckout, restartThroughLauncher, type Change, type UpdateState } from "./updater";
 import { slicerExe, startMini, type Mini } from "./mini";
 import icon from "../../resources/icon.png?asset";
 import trayIcon from "../../resources/tray.png?asset";
@@ -81,14 +81,15 @@ app.on("second-instance", (_e, argv) => {
 });
 
 /**
- * Updates for a copy running from its git folder (started by OPF.bat). Installed copies skip this.
+ * Updates. A copy running from its git folder (started by OPF.bat) pulls and restarts itself. An
+ * installed copy asks GitHub for a newer release now and then, and offers its download page.
  * The window asks over IPC; the web page (in OPF Slicer, or a browser) over the local web server.
  */
 function watchForUpdates(): UpdateHooks {
   const root = app.getAppPath();
   let state: UpdateState | null = null;
   let whatsNew: Change[] = [];
-  const enabled = !app.isPackaged && isCheckout(root);
+  const fromGit = !app.isPackaged && isCheckout(root);
   const hooks: UpdateHooks = {
     state: () => state,
     whatsNew: () => {
@@ -97,7 +98,11 @@ function watchForUpdates(): UpdateHooks {
       return w;
     },
     restart: () => {
-      if (!enabled) return;
+      if (state?.download) {
+        void shell.openExternal(state.download);
+        return;
+      }
+      if (!fromGit) return;
       // Without its window when none is open: the small OPF by the clock comes back by itself.
       restartThroughLauncher(root, !win);
       app.quit();
@@ -106,10 +111,10 @@ function watchForUpdates(): UpdateHooks {
   ipcMain.handle("opf:updateState", hooks.state);
   ipcMain.handle("opf:whatsNew", hooks.whatsNew);
   ipcMain.handle("opf:restart", hooks.restart);
-  if (!enabled) return hooks;
-  changesSinceLastRun(root, join(app.getPath("userData"), "version.json")).then((c) => (whatsNew = c), () => {});
+  if (!fromGit && !app.isPackaged) return hooks;
+  if (fromGit) changesSinceLastRun(root, join(app.getPath("userData"), "version.json")).then((c) => (whatsNew = c), () => {});
   const check = () =>
-    checkForUpdate(root).then(
+    (fromGit ? checkForUpdate(root) : checkForRelease(app.getVersion())).then(
       (s) => {
         state = s;
         if (s) broadcast("opf:updateReady", s);
@@ -117,7 +122,7 @@ function watchForUpdates(): UpdateHooks {
       () => { /* offline: try again later */ },
     );
   setTimeout(check, 15_000);
-  setInterval(check, 3 * 60_000);
+  setInterval(check, fromGit ? 3 * 60_000 : 6 * 60 * 60_000);
   return hooks;
 }
 

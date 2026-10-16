@@ -4,11 +4,14 @@
 // learns something, as a partial update; the farm merges it. Commands return
 // promises that reject with a sentence the operator can act on.
 
+import type { PrintOptions } from "./print-options";
 import type { LiveState, PlateJob, PrinterConfig } from "./types";
 
 export interface StartOptions {
   /** Start even though a filament is not loaded in its colour: the operator said so. */
   anyFilament?: boolean;
+  /** Bed levelling, flow calibration and the rest, as chosen for this printer. Unset: OPF's defaults. */
+  print?: PrintOptions;
 }
 
 export interface PrinterDriver {

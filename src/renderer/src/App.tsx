@@ -172,8 +172,8 @@ function Shell() {
         <div className="summary">
           {update && (
             <button className="chip update" title={update.changes.map((c) => `• ${c.subject}`).join("\n")}
-              onClick={() => { toast("Updating. OPF opens again in a moment."); void opf.restart(); }}>
-              Update ready · Restart
+              onClick={() => { if (!update.download) toast("Updating. OPF opens again in a moment."); void opf.restart(); }}>
+              {update.download ? `${update.changes[0]?.subject ?? "A new OPF is out"} · Download` : "Update ready · Restart"}
             </button>
           )}
           {opf.isDemo && <span className="chip demo">Demo · simulated printers</span>}

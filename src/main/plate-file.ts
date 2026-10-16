@@ -21,6 +21,8 @@ export interface PlateInfo {
   thumbnail: string | null;
   /** The printer model it was sliced for ("Bambu Lab A1 mini"), when the file says. */
   slicedFor: string | null;
+  /** The parts on the plate in the order they were added ("Bracket.stl"), when the file says. */
+  parts?: string[];
 }
 
 /** "1d 2h 3m 4s", "2h 05m", "45m 10s" → seconds. */
@@ -99,9 +101,15 @@ export async function readPlateFile(path: string, plate = 1): Promise<PlateInfo>
   if (!names.has(`Metadata/plate_${plate}.gcode`)) throw new Error(`Plate ${plate} in this file has not been sliced. Slice it before sending.`);
   const xml = files["Metadata/slice_info.config"];
   if (!xml) throw new Error("The file has no slice information.");
-  const info = parseSliceInfoForPlate(strFromU8(xml), plate);
+  const text = strFromU8(xml);
+  const info = parseSliceInfoForPlate(text, plate);
   const png = files[`Metadata/plate_${plate}.png`];
-  return { ...info, thumbnail: png ? `data:image/png;base64,${Buffer.from(png).toString("base64")}` : null, slicedFor: printerModel(files["Metadata/project_settings.config"]) };
+  return {
+    ...info,
+    thumbnail: png ? `data:image/png;base64,${Buffer.from(png).toString("base64")}` : null,
+    slicedFor: printerModel(files["Metadata/project_settings.config"]),
+    parts: partNamesForPlate(text, plate),
+  };
 }
 
 /** "printer_model" from a project's settings: the printer the plate was sliced for. */
@@ -117,7 +125,19 @@ function printerModel(settings: Uint8Array | undefined): string | null {
 
 /** slice_info.config lists every sliced plate; take the one asked for. */
 export function parseSliceInfoForPlate(xml: string, plate: number) {
+  return parseSliceInfo(plateXml(xml, plate));
+}
+
+/** The parts on one plate, in the order they were added: its `<object name="…">` entries. */
+export function partNamesForPlate(xml: string, plate: number): string[] {
+  return [...plateXml(xml, plate).matchAll(/<object\b[^>]*?\bname="([^"]*)"/g)].map((m) => unescapeXml(m[1]).trim()).filter(Boolean);
+}
+
+function plateXml(xml: string, plate: number) {
   const plates = [...xml.matchAll(/<plate>([\s\S]*?)<\/plate>/g)].map((m) => m[0]);
-  const chosen = plates.find((p) => new RegExp(`<metadata\\s+key="index"\\s+value="${plate}"`).test(p)) ?? plates[0] ?? xml;
-  return parseSliceInfo(chosen);
+  return plates.find((p) => new RegExp(`<metadata\\s+key="index"\\s+value="${plate}"`).test(p)) ?? plates[0] ?? xml;
+}
+
+function unescapeXml(s: string) {
+  return s.replace(/&(lt|gt|quot|apos|amp);/g, (_, e: string) => ({ lt: "<", gt: ">", quot: '"', apos: "'", amp: "&" })[e]!);
 }

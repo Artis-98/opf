@@ -3,7 +3,7 @@ import { execFileSync } from "node:child_process";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { changesSinceLastRun, checkForUpdate, isCheckout } from "./updater";
+import { changesSinceLastRun, checkForUpdate, isCheckout, isNewer } from "./updater";
 
 const dirs: string[] = [];
 const tmp = () => {
@@ -61,5 +61,16 @@ describe("updater", () => {
     const changes = await changesSinceLastRun(pc, state);
     expect(changes.map((c) => c.subject)).toEqual(["Faster simulator", "Test printers"]);
     expect(await changesSinceLastRun(pc, state)).toEqual([]);
+  });
+});
+
+describe("an installed copy's versions", () => {
+  it("knows which release is newer", () => {
+    expect(isNewer("0.2.1", "0.2.0")).toBe(true);
+    expect(isNewer("v0.2.10", "0.2.9")).toBe(true);
+    expect(isNewer("0.3.0", "0.2.99")).toBe(true);
+    expect(isNewer("0.2.0", "0.2.0")).toBe(false);
+    expect(isNewer("0.1.9", "0.2.0")).toBe(false);
+    expect(isNewer("0.2.1-beta", "0.2.0")).toBe(true);
   });
 });

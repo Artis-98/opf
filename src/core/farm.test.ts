@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { emptyFarm, FarmService } from "./farm";
 import { SimulatedPrinter, simulatorFor } from "./simulator";
-import type { DriverFactory } from "./driver";
+import type { DriverFactory, PrinterDriver } from "./driver";
 import type { FarmData, PlateJob } from "./types";
 
 const plate = (name: string, minutes = 1): Omit<PlateJob, "id" | "createdAt"> => ({
@@ -26,6 +26,31 @@ describe("FarmService", () => {
     expect(snap.data.shelves[0].slots[0]).toBe(id);
     expect(snap.data.queues[id]).toEqual([]);
     expect(saved.length).toBeGreaterThan(0);
+    farm.shutdown();
+  });
+
+  it("starts each plate with the printer's own choice of bed levelling and calibrations", async () => {
+    const started: unknown[] = [];
+    const data = emptyFarm();
+    const farm = new FarmService(data, (cfg, emit): PrinterDriver => {
+      const d = simulatorFor(cfg, emit, 60);
+      return {
+        connect: () => d.connect(), disconnect: () => d.disconnect(), pause: () => d.pause(), resume: () => d.resume(), stop: () => d.stop(),
+        start: (job, opts) => { started.push(opts?.print); return d.start(job); },
+      };
+    }, { persist: () => {}, slicer: () => ({ found: false, name: null, path: null }) });
+    farm.start();
+    const a = farm.addPrinter({ name: "A", model: "m", driver: "simulator" });
+    const b = farm.addPrinter({ name: "B", model: "m", driver: "simulator" });
+    farm.updatePrinter(b, { printOptions: { bedLevelling: false, flowCalibration: true } });
+    farm.enqueue(a, plate("first", 1));
+    farm.enqueue(b, plate("second", 1));
+    await farm.startNext(a);
+    await farm.startNext(b);
+    expect(started).toEqual([
+      { bedLevelling: true, flowCalibration: false, vibrationCompensation: false, timelapse: false },
+      { bedLevelling: false, flowCalibration: true, vibrationCompensation: false, timelapse: false },
+    ]);
     farm.shutdown();
   });
 

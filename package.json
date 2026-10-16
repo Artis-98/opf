@@ -1,8 +1,8 @@
 {
   "name": "opf",
   "productName": "OPF",
-  "version": "0.1.0",
-  "description": "Open Print Farm: a desktop slicer for your whole 3D printer farm.",
+  "version": "0.2.0",
+  "description": "Open Print Farm: run a whole farm of 3D printers from one place.",
   "license": "AGPL-3.0-or-later",
   "author": "Artis Agrums <aa@iiteg.com>",
   "homepage": "https://github.com/Artis-98/opf",
@@ -20,7 +20,8 @@
     "test": "vitest run",
     "dist:win": "electron-vite build && electron-builder --win",
     "dist:mac": "electron-vite build && electron-builder --mac",
-    "dist:linux": "electron-vite build && electron-builder --linux"
+    "dist:linux": "electron-vite build && electron-builder --linux",
+    "pack:win": "electron-vite build && electron-builder --win --dir"
   },
   "build": {
     "appId": "com.iiteg.opf",
@@ -30,12 +31,14 @@
     },
     "files": [
       "out/**/*",
-      "package.json"
+      "package.json",
+      "resources/**/*"
     ],
     "win": {
       "target": [
         "nsis"
-      ]
+      ],
+      "icon": "resources/icon.ico"
     },
     "nsis": {
       "oneClick": false,
@@ -52,7 +55,12 @@
         "AppImage"
       ],
       "category": "Utility"
-    }
+    },
+    "executableName": "OPF-Farm",
+    "copyright": "Copyright © 2026 SIA IITEG",
+    "asarUnpack": [
+      "resources/**"
+    ]
   },
   "dependencies": {
     "@fontsource/barlow": "^5.3.0",

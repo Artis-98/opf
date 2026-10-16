@@ -198,7 +198,7 @@ async function receivePlate(req: IncomingMessage, res: ServerResponse, farm: Far
     return send(res, 400, { ok: false, error: (e as Error).message });
   }
 
-  const name = str(up.fields.name) ?? plateName(sliced.filename);
+  const name = nameForPlate(str(up.fields.name), info.parts) ?? plateName(sliced.filename);
   const stem = join(opts.uploads, `${newId("f-")}-${name.replace(/[^A-Za-z0-9._-]+/g, "_").slice(0, 60)}`);
   const file = stem + (sliced.path.endsWith(".gcode") ? ".gcode" : ".gcode.3mf");
   renameSync(sliced.path, file);
@@ -260,6 +260,17 @@ function noPrinterFor(printers: PrinterConfig[], job: Pick<PlateJob, "name" | "s
 
 export function plateName(filename: string) {
   return filename.replace(/\.(gcode\.3mf|3mf|gcode)$/i, "").replace(/[_]+/g, " ").trim() || "Plate";
+}
+
+/**
+ * The name a plate goes in the queue with. A name somebody gave it stays. A project nobody named
+ * ("Untitled", "Untitled #2", or no name at all) is named after its part, the first one added
+ * when there are several, so the queue is not a column of Untitled.
+ */
+export function nameForPlate(sent: string | null, parts: string[] | undefined): string | null {
+  if (sent && !/^untitled(?:\s*#\s*\d+|[\s_]+plate[\s_]*\d+)?$/i.test(sent.trim())) return sent;
+  const first = parts?.map((p) => p.replace(/\.(stl|3mf|obj|step|stp|amf|svg|drc)$/i, "").trim()).find(Boolean);
+  return first ?? sent;
 }
 
 export function startApi(farm: FarmService, opts: ServerOptions): Server | null {
@@ -343,7 +354,7 @@ export function startApi(farm: FarmService, opts: ServerOptions): Server | null 
         const finalPath = join(opts.uploads, `${jobId}-${sent.filename.replace(/[^A-Za-z0-9._-]/g, "_")}`);
         renameSync(sent.path, finalPath);
         const job: Omit<PlateJob, "id" | "createdAt"> & { id: string } = {
-          id: jobId, name: plateName(sent.filename) + (plate > 1 ? ` (plate ${plate})` : ""), ref: null,
+          id: jobId, name: nameForPlate(plateName(sent.filename), info.parts) + (plate > 1 ? ` (plate ${plate})` : ""), ref: null,
           minutes: info.minutes, grams: info.grams, filaments: info.filaments, file: finalPath, plate,
           thumbnail: info.thumbnail, source: "slicer", ...(info.slicedFor ? { slicedFor: info.slicedFor } : {}),
         };

@@ -78,4 +78,9 @@ describe("the start command", () => {
     const d = startData(file, [{ color: "#FF0000", material: "PLA", grams: 3 }], [{ unit: -1, slot: 0, color: null, material: null, remainPct: null }]);
     expect(d.ams_settings).toEqual({ use_ams: false, ams_box_mapping: [] });
   });
+
+  it("asks for the calibrations chosen for the printer", () => {
+    const d = startData(file, [], [], { bedLevelling: false, flowCalibration: true, vibrationCompensation: true, timelapse: true });
+    expect(d.task_settings).toMatchObject({ auto_leveling: 0, flow_calibration: 1, vibration_compensation: 1, timelapse: { status: 1 } });
+  });
 });

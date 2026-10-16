@@ -295,7 +295,7 @@ export class AnycubicDriver implements PrinterDriver {
 
     const md5 = createHash("md5").update(gcode).digest("hex");
     const answer = this.next((type, msg) => type === "print" && msg.action === "start", 8000);
-    this.send("slicer", "print", "start", startData({ filename: name, md5, size: gcode.length }, job.filaments, slots));
+    this.send("slicer", "print", "start", startData({ filename: name, md5, size: gcode.length }, job.filaments, slots, opts.print));
     const reply = await answer;
     if (reply && typeof reply.code === "number" && reply.code !== 200) {
       throw new Error(`${this.cfg.name} did not start ${job.name}${typeof reply.msg === "string" ? `: ${reply.msg}` : "."}`);

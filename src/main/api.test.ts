@@ -90,8 +90,10 @@ describe("local API", () => {
 
   /* ---- slicers sending plates, the way OrcaSlicer's OctoPrint host does ---- */
 
-  const sliced = (secs: number, grams: number) => zipSync({
-    "Metadata/slice_info.config": strToU8(`<config><plate><metadata key="index" value="1"/><metadata key="prediction" value="${secs}"/><metadata key="weight" value="${grams}"/><filament id="1" type="PLA" color="#161616" used_g="${grams}"/></plate></config>`),
+  const sliced = (secs: number, grams: number, parts: string[] = []) => zipSync({
+    "Metadata/slice_info.config": strToU8(`<config><plate><metadata key="index" value="1"/><metadata key="prediction" value="${secs}"/><metadata key="weight" value="${grams}"/>` +
+      parts.map((p, i) => `<object identify_id="${i + 1}" name="${p}" skipped="false" />`).join("") +
+      `<filament id="1" type="PLA" color="#161616" used_g="${grams}"/></plate></config>`),
     "Metadata/plate_1.gcode": strToU8("G28"),
     "Metadata/plate_1.png": new Uint8Array([137, 80, 78, 71]),
   });
@@ -174,6 +176,26 @@ describe("local API", () => {
     const got = await fetch(`${base}/api/v1/ui/plates/${r.value.job.id}/project`);
     expect(got.status).toBe(200);
     expect(await got.text()).toBe("the project");
+  });
+
+  it("names an Untitled plate after its first part, and keeps a name somebody gave it", async () => {
+    const base = (await setup()).replace("/api/v1", "");
+    const a = farm.addPrinter({ name: "A1", model: "m", driver: "simulator" });
+    const send = async (name: string, parts: string[]) => {
+      const form = new FormData();
+      form.append("name", name);
+      form.append("printer", a);
+      form.append("file", new Blob([new Uint8Array(sliced(600, 5, parts))]), "x.gcode.3mf");
+      return ((await (await fetch(`${base}/api/v1/ui/plates`, { method: "POST", body: form })).json()) as Sent).value.job.name;
+    };
+    expect(await send("Untitled", ["Bracket &amp; clip.stl", "Hook.STL"])).toBe("Bracket & clip");
+    expect(await send("Untitled #2", ["Gear.3mf"])).toBe("Gear");
+    expect(await send("", ["Lid.step"])).toBe("Lid");
+    expect(await send("Spacers for Emils", ["Spacer.stl"])).toBe("Spacers for Emils");
+    expect(await send("Untitled", [])).toBe("Untitled");
+    const octo = await upload(`${base}/octo/${a}`, sliced(60, 1, ["Knob.stl"]), "Untitled_plate_1.gcode.3mf");
+    expect(octo.status).toBe(201);
+    expect(farm.view().data.queues[a].at(-1)!.name).toBe("Knob");
   });
 
   it("replaces a plate that was edited, in its place in the queue, and removes the old files", async () => {

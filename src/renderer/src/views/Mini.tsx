@@ -42,7 +42,7 @@ export function MiniView() {
         {!printers.length && <p className="muted">No printers yet. Open OPF to add them.</p>}
       </div>
       <footer className="mini-foot">
-        {update && <button className="btn" title={update.changes.map((c) => `• ${c.subject}`).join("\n")} onClick={() => void opf.restart()}>Update · Restart</button>}
+        {update && <button className="btn" title={update.changes.map((c) => `• ${c.subject}`).join("\n")} onClick={() => void opf.restart()}>{update.download ? "New version · Download" : "Update · Restart"}</button>}
         <button className="btn pri" onClick={() => void opf.openFull?.()}>Open OPF</button>
       </footer>
     </div>

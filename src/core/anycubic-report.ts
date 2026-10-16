@@ -15,6 +15,7 @@
 //
 // Printers that reply in other shapes are read as far as they match, and the rest is ignored.
 
+import { DEFAULT_PRINT_OPTIONS, type PrintOptions } from "./print-options";
 import type { AmsUnit, FilamentSlot, JobFilament, LiveState, PrinterStatus } from "./types";
 
 export interface AnycubicProject {
@@ -219,9 +220,9 @@ export interface StartFile {
 /**
  * The `print`/`start` command's data for a file already on the printer: which ACE slot feeds each
  * of the plate's filaments (`slots`, in the plate's filament order, null for the printer's own
- * spool), auto levelling on, the other calibrations off.
+ * spool), and the calibrations chosen for the printer (auto levelling only, unless told).
  */
-export function startData(file: StartFile, filaments: JobFilament[], slots: (FilamentSlot | null)[]) {
+export function startData(file: StartFile, filaments: JobFilament[], slots: (FilamentSlot | null)[], print: PrintOptions = DEFAULT_PRINT_OPTIONS) {
   const useAce = slots.length > 0 && slots.every((s) => s !== null && s.unit >= 0);
   return {
     taskid: "-1",
@@ -249,12 +250,12 @@ export function startData(file: StartFile, filaments: JobFilament[], slots: (Fil
         : [],
     },
     task_settings: {
-      auto_leveling: 1,
-      vibration_compensation: 0,
-      flow_calibration: 0,
+      auto_leveling: print.bedLevelling ? 1 : 0,
+      vibration_compensation: print.vibrationCompensation ? 1 : 0,
+      flow_calibration: print.flowCalibration ? 1 : 0,
       dry_mode: 0,
       ai_settings: { status: 0, count: 0, type: 0 },
-      timelapse: { status: 0, count: 0, type: 0 },
+      timelapse: { status: print.timelapse ? 1 : 0, count: 0, type: 0 },
       drying_settings: { status: 0, target_temp: 0, duration: 0, remain_time: 0 },
       model_objects_skip_parts: [],
     },

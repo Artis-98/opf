@@ -20,6 +20,35 @@ export interface UpdateState {
   /** Commits on GitHub that this copy does not have yet. */
   behind: number;
   changes: Change[];
+  /** An installed copy cannot update itself: the page to download the new version from. */
+  download?: string;
+}
+
+/** Where the installer is offered. */
+export const DOWNLOAD_PAGE = "https://artis-98.github.io/opf/";
+
+/** "0.2.10" is newer than "0.2.9". Anything after a dash ("0.3.0-beta") is ignored. */
+export function isNewer(version: string, than: string): boolean {
+  const parts = (v: string) => v.replace(/^v/i, "").split("-")[0].split(".").map((n) => parseInt(n, 10) || 0);
+  const a = parts(version), b = parts(than);
+  for (let i = 0; i < Math.max(a.length, b.length); i++) {
+    if ((a[i] ?? 0) !== (b[i] ?? 0)) return (a[i] ?? 0) > (b[i] ?? 0);
+  }
+  return false;
+}
+
+/** For an installed copy: the newest release on GitHub, when it is newer than this one. Null when up to date. */
+export async function checkForRelease(current: string, repo = "Artis-98/opf"): Promise<UpdateState | null> {
+  const r = await fetch(`https://api.github.com/repos/${repo}/releases/latest`, {
+    headers: { Accept: "application/vnd.github+json", "User-Agent": "OPF" },
+    signal: AbortSignal.timeout(20_000),
+  });
+  if (!r.ok) throw new Error(`GitHub answered ${r.status}`);
+  const release = (await r.json()) as { tag_name?: string; body?: string | null };
+  const latest = (release.tag_name ?? "").replace(/^v/i, "");
+  if (!latest || !isNewer(latest, current)) return null;
+  const summary = (release.body ?? "").trim().split(/\n\s*\n/)[0]?.replace(/\s*\n\s*/g, " ") ?? "";
+  return { behind: 1, changes: [{ subject: `OPF ${latest} is out`, body: summary }], download: DOWNLOAD_PAGE };
 }
 
 function git(root: string, args: string[]): Promise<string> {
