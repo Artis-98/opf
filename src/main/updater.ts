@@ -87,7 +87,8 @@ const LOG_FORMAT = `--format=%s${SEP_FIELD}%b${SEP_RECORD}`;
 export async function checkForUpdate(root: string): Promise<UpdateState | null> {
   await git(root, ["fetch", "--quiet", "origin"]);
   const branch = (await git(root, ["rev-parse", "--abbrev-ref", "HEAD"])).trim();
-  const changes = parseLog(await git(root, ["log", LOG_FORMAT, "-n", "30", `HEAD..origin/${branch}`]));
+  // Only what changed in the farm's own folder: in the OPF repository the slicer lives beside it.
+  const changes = parseLog(await git(root, ["log", LOG_FORMAT, "-n", "30", `HEAD..origin/${branch}`, "--", "."]));
   return changes.length ? { behind: changes.length, changes } : null;
 }
 
@@ -104,7 +105,7 @@ export async function changesSinceLastRun(root: string, stateFile: string): Prom
   writeFileSync(stateFile, JSON.stringify({ seen: head }));
   if (!seen || seen === head) return [];
   try {
-    return parseLog(await git(root, ["log", LOG_FORMAT, "-n", "30", `${seen}..${head}`]));
+    return parseLog(await git(root, ["log", LOG_FORMAT, "-n", "30", `${seen}..${head}`, "--", "."]));
   } catch {
     return []; // the old commit is gone (history rewritten): nothing sensible to show
   }

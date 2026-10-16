@@ -1,4 +1,4 @@
-# OPF — notes for working on this repository
+# OPF farm: notes for working on farm/
 
 ## Commands
 
@@ -22,7 +22,8 @@ Run tests and typecheck before every commit.
 
 ## How the owner runs OPF, and what that means for every push
 
-The owner runs OPF on their Windows PC straight from `main`, through
+The owner runs OPF on their Windows PC straight from git: a clone that follows the `farm` branch (farm/ of
+`main` on its own, kept in step by the OPF farm branch workflow), through
 `OPF.bat` → `scripts/launch.cjs` (git pull, npm install when the lockfile
 changed, build, open). An open OPF checks GitHub every 3 minutes and offers
 "Update ready · Restart". So:
@@ -41,7 +42,7 @@ changed, build, open). An open OPF checks GitHub every 3 minutes and offers
 ## Installed copies (from 0.2.0)
 
 OPF is also shipped as one Windows installer: OPF Slicer with this farm inside it. The slicer's
-Windows build checks out this repository, runs `npm run pack:win` (electron-builder, folder only)
+Windows build (the repository root) runs `npm run pack:win` in farm/ (electron-builder, folder only)
 and installs `release/win-unpacked` as `farm\` next to `OPF.exe`; the farm program is
 `farm\OPF-Farm.exe`. When the Farm tab finds no farm it starts that one with `--background`, unless
 `launcher.json` points at a git copy (the owner's PC). An installed farm (`app.isPackaged`) does not
@@ -49,7 +50,7 @@ pull from git: it asks GitHub for the latest release of Artis-98/opf every few h
 download page (`DOWNLOAD_PAGE` in `src/main/updater.ts`: opf.iiteg.com, the site in `site/`). Its settings folder
 is the same `%APPDATA%\OPF`. Keep `package.json`'s `version` in step with the release tag.
 
-## OPF Slicer (Artis-98/opf-slicer)
+## OPF Slicer (the rest of this repository)
 
 The OrcaSlicer fork the owner uses: tabs Farm, Timeline, Prepare, Preview. Farm
 and Timeline load this web page with `?embed=farm|timeline&theme=dark|light`;
