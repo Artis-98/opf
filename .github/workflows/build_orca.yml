@@ -454,8 +454,8 @@ jobs:
           & $makensis /VERSION
           $nsisDir | Out-File -Append -FilePath $env:GITHUB_PATH -Encoding utf8
 
-      # OPF: the farm (github.com/Artis-98/opf, main) packed by electron-builder. The install step puts it
-      # in farm\ next to OPF.exe, in the portable folder and the installer alike.
+      # OPF: the farm (farm/ in this repository) packed by electron-builder. The install step puts it in
+      # farm\ next to OPF.exe, in the portable folder and the installer alike.
       - name: Set up Node for the OPF farm
         if: runner.os == 'Windows'
         uses: actions/setup-node@v4
@@ -467,15 +467,14 @@ jobs:
         working-directory: ${{ github.workspace }}
         shell: pwsh
         run: |
-          git clone --depth 1 https://github.com/Artis-98/opf.git opf-src
-          Push-Location opf-src
+          Push-Location farm
           npm ci --no-audit --no-fund
           if ($LASTEXITCODE -ne 0) { throw "npm ci failed for the OPF farm." }
           npm run pack:win
           if ($LASTEXITCODE -ne 0) { throw "Packing the OPF farm failed." }
           if (-not (Test-Path release/win-unpacked/OPF-Farm.exe)) { throw "The OPF farm did not build: no OPF-Farm.exe." }
           Pop-Location
-          Copy-Item -Recurse opf-src/release/win-unpacked opf-farm
+          Copy-Item -Recurse farm/release/win-unpacked opf-farm
           Get-ChildItem opf-farm | Select-Object -First 5
 
       - name: Build slicer Win

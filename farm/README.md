@@ -174,7 +174,7 @@ path in Settings.
 
 ## OPF Slicer
 
-[OPF Slicer](https://github.com/Artis-98/opf-slicer) is OrcaSlicer with four tabs:
+OPF Slicer (the rest of this repository) is OrcaSlicer with four tabs:
 **Farm**, **Timeline**, **Prepare** and **Preview**. Farm and Timeline are this
 farm; Prepare and Preview are OrcaSlicer's own.
 

@@ -1,6 +1,6 @@
 # OPF Slicer
 
-This is OrcaSlicer made into the slicer of [OPF (Open Print Farm)](https://github.com/Artis-98/opf).
+This is OrcaSlicer made into the slicer of OPF (Open Print Farm); the farm itself is in `farm/`, the website in `site/`.
 Prepare and Preview are OrcaSlicer's own and are kept close to upstream so its updates can be merged.
 
 ## What is different
@@ -55,7 +55,7 @@ Prepare and Preview are OrcaSlicer's own and are kept close to upstream so its u
   `save_project_choise` defaults to "no", so a new or another project never asks to save the open
   one. Add plate and Edit from the Farm tab start from a clean project without asking.
 - **Windows build** (`.github/workflows/opf_windows.yml`): Windows x64 only, on every change to `main`.
-  It first packs the farm (Artis-98/opf, `npm run pack:win`) into `opf-farm/`, which the install step
+  It first packs the farm (`farm/`, `npm run pack:win`) into `opf-farm/`, which the install step
   puts in `farm\` next to `OPF.exe`: one installer, `OPF_Setup_<version>_x64.exe`, for the whole of OPF.
   The installer and the portable folder are attached to each run under **Actions**; releases go on
   Artis-98/opf. The Farm tab starts `farm\OPF-Farm.exe` when no farm answers, unless OPF's

@@ -1,0 +1,34 @@
+# OPF: the farm app (farm/) is typechecked, tested and built on every change to it. The Windows
+# installer is built by "OPF Windows build", which packs this farm into it.
+name: OPF farm checks
+
+on:
+  push:
+    branches: [main]
+    paths: ['farm/**', '.github/workflows/opf_farm.yml']
+  pull_request:
+    paths: ['farm/**', '.github/workflows/opf_farm.yml']
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    env:
+      ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
+    defaults:
+      run:
+        working-directory: farm
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: farm
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: farm/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - run: npm run build:demo

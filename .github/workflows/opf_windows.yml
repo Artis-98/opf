@@ -9,6 +9,7 @@ on:
       - main
     paths:
       - 'src/**'
+      - 'farm/**'
       - 'resources/**'
       - 'deps/**'
       - 'deps_src/**'
