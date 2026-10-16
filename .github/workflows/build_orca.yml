@@ -160,6 +160,10 @@ jobs:
           }
 
           echo "ver=$ver" | Out-File -Append -FilePath $env:GITHUB_ENV -Encoding utf8
+          # OPF: its own version, for the download names.
+          $opf_ver = "dev"
+          if ((Get-Content version.inc -Raw) -match 'set\(OPF_VERSION "(.*?)"\)') { $opf_ver = $matches[1] }
+          echo "opf_ver=$opf_ver" | Out-File -Append -FilePath $env:GITHUB_ENV -Encoding utf8
           echo "date=$date" | Out-File -Append -FilePath $env:GITHUB_ENV -Encoding utf8
           echo "git_commit_hash=$git_commit_hash" | Out-File -Append -FilePath $env:GITHUB_ENV -Encoding utf8
           echo "date: ${{ env.date }} version: ${{ env.ver }}"
@@ -450,6 +454,30 @@ jobs:
           & $makensis /VERSION
           $nsisDir | Out-File -Append -FilePath $env:GITHUB_PATH -Encoding utf8
 
+      # OPF: the farm (github.com/Artis-98/opf, main) packed by electron-builder. The install step puts it
+      # in farm\ next to OPF.exe, in the portable folder and the installer alike.
+      - name: Set up Node for the OPF farm
+        if: runner.os == 'Windows'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Build the OPF farm Win
+        if: runner.os == 'Windows'
+        working-directory: ${{ github.workspace }}
+        shell: pwsh
+        run: |
+          git clone --depth 1 https://github.com/Artis-98/opf.git opf-src
+          Push-Location opf-src
+          npm ci --no-audit --no-fund
+          if ($LASTEXITCODE -ne 0) { throw "npm ci failed for the OPF farm." }
+          npm run pack:win
+          if ($LASTEXITCODE -ne 0) { throw "Packing the OPF farm failed." }
+          if (-not (Test-Path release/win-unpacked/OPF-Farm.exe)) { throw "The OPF farm did not build: no OPF-Farm.exe." }
+          Pop-Location
+          Copy-Item -Recurse opf-src/release/win-unpacked opf-farm
+          Get-ChildItem opf-farm | Select-Object -First 5
+
       - name: Build slicer Win
         if: runner.os == 'Windows'
         working-directory: ${{ github.workspace }}
@@ -509,15 +537,16 @@ jobs:
         if: runner.os == 'Windows'
         uses: actions/upload-artifact@v7
         with:
-          name: OrcaSlicer_Windows_${{ env.ver }}${{ env.ARCH_SUFFIX }}_portable
+          name: OPF_${{ env.opf_ver }}_Windows${{ env.ARCH_SUFFIX }}_portable
           path: ${{ github.workspace }}/${{ env.BUILD_DIR }}/OrcaSlicer
 
       - name: Upload artifacts Win installer
         if: runner.os == 'Windows' && !vars.SELF_HOSTED
         uses: actions/upload-artifact@v7
         with:
-          name: OrcaSlicer_Windows_${{ env.ver }}${{ env.ARCH_SUFFIX }}
-          path: ${{ github.workspace }}/${{ env.BUILD_DIR }}/OrcaSlicer*.exe
+          name: OPF_${{ env.opf_ver }}_Windows${{ env.ARCH_SUFFIX }}_installer
+          path: ${{ github.workspace }}/${{ env.BUILD_DIR }}/OPF_Setup*.exe
+          if-no-files-found: error
 
       - name: Upload artifacts Win PDB
         if: runner.os == 'Windows' && inputs.arch != 'arm64' && !vars.SELF_HOSTED
@@ -557,8 +586,9 @@ jobs:
           asset_name: OrcaSlicer_profile_validator_Windows_nightly.exe
           content_type: application/x-msdownload
 
+      # OPF: no Microsoft Store package (it is OrcaSlicer's store identity).
       - name: Build MSIX Store package Win
-        if: runner.os == 'Windows' && !vars.SELF_HOSTED
+        if: false && runner.os == 'Windows' && !vars.SELF_HOSTED
         working-directory: ${{ github.workspace }}
         shell: pwsh
         run: |
@@ -571,7 +601,7 @@ jobs:
             -PublisherDisplayName "${{ vars.ORCA_MSIX_PUBLISHER_DISPLAY_NAME || 'OrcaSlicer' }}"
 
       - name: Upload artifacts Win MSIX
-        if: runner.os == 'Windows' && !vars.SELF_HOSTED
+        if: false && runner.os == 'Windows' && !vars.SELF_HOSTED
         uses: actions/upload-artifact@v7
         with:
           name: OrcaSlicer_Windows_MSIX_${{ env.ver }}${{ env.ARCH_SUFFIX }}

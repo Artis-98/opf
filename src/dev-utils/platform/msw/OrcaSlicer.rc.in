@@ -1,19 +1,19 @@
 1 VERSIONINFO
-FILEVERSION @SLIC3R_VERSION@
-PRODUCTVERSION @SLIC3R_VERSION@
+FILEVERSION @OPF_VERSION_MAJOR@,@OPF_VERSION_MINOR@,@OPF_VERSION_PATCH@,0
+PRODUCTVERSION @OPF_VERSION_MAJOR@,@OPF_VERSION_MINOR@,@OPF_VERSION_PATCH@,0
 {
  BLOCK "StringFileInfo"
  {
   BLOCK "040904E4"
   {
-   VALUE "CompanyName", "SoftFever"
-   VALUE "FileDescription", "@SLIC3R_APP_NAME@"
-   VALUE "FileVersion", "@SLIC3R_BUILD_ID@"
-   VALUE "ProductName", "@SLIC3R_APP_NAME@"
-   VALUE "ProductVersion", "@SLIC3R_BUILD_ID@"
-   VALUE "InternalName", "@SLIC3R_APP_NAME@"
-   VALUE "LegalCopyright", ""
-   VALUE "OriginalFilename", "orca-slicer.exe"
+   VALUE "CompanyName", "SIA IITEG"
+   VALUE "FileDescription", "Open Print Farm"
+   VALUE "FileVersion", "@OPF_VERSION@"
+   VALUE "ProductName", "OPF (Open Print Farm)"
+   VALUE "ProductVersion", "@OPF_VERSION@"
+   VALUE "InternalName", "OPF"
+   VALUE "LegalCopyright", "Copyright 2026 SIA IITEG. Based on OrcaSlicer, AGPL-3.0."
+   VALUE "OriginalFilename", "OPF.exe"
   }
  }
  BLOCK "VarFileInfo"
@@ -22,4 +22,4 @@ PRODUCTVERSION @SLIC3R_VERSION@
  }
 }
 2 ICON "@SLIC3R_RESOURCES_DIR@/images/OrcaSlicer.ico"
-1 24 "OrcaSlicer.manifest" 
+1 24 "OrcaSlicer.manifest"

@@ -37,6 +37,13 @@ namespace {
 
 const char* DEFAULT_FARM_URL = "http://127.0.0.1:7878/";
 
+// The farm program the installer puts in the "farm" folder next to the slicer.
+#ifdef _WIN32
+const char* OPF_FARM_EXE = "OPF-Farm.exe";
+#else
+const char* OPF_FARM_EXE = "OPF-Farm";
+#endif
+
 // OPF's ids are letters and digits. Nothing else goes into a file path or an address.
 bool valid_id(const std::string& id)
 {
@@ -262,7 +269,9 @@ void OpfFarm::send_current_plate()
     }
     const int   plate_idx = plates.get_curr_plate_index();
     std::string name      = plate->get_plate_name();
-    if (name.empty()) {
+    // A project that was never saved has no name of its own ("Untitled", in any language): it goes
+    // without one, and the farm names the plate after its first part.
+    if (name.empty() && !plater->get_project_filename(".3mf").empty()) {
         name = into_u8(plater->get_project_name());
         if (plates.get_plate_count() > 1)
             name += " #" + std::to_string(plate_idx + 1);
@@ -368,6 +377,21 @@ bool OpfFarm::start_service()
     } catch (const std::exception&) {
         node.clear();
         script.clear();
+    }
+    // Installed with the slicer: the farm program in the "farm" folder next to it.
+    if (node.empty() || script.empty()) {
+        const fs::path farm = into_path(wxStandardPaths::Get().GetExecutablePath()).parent_path() / "farm" / OPF_FARM_EXE;
+        boost::system::error_code ec;
+        if (fs::exists(farm, ec)) {
+            const wxString command = "\"" + from_path(farm) + "\" --background";
+            if (wxExecute(command, wxEXEC_ASYNC | wxEXEC_HIDE_CONSOLE) <= 0) {
+                BOOST_LOG_TRIVIAL(warning) << "OPF: could not start " << into_u8(command);
+                return false;
+            }
+            BOOST_LOG_TRIVIAL(info) << "OPF: starting the farm service: " << into_u8(command);
+            m_started_at = now;
+            return true;
+        }
     }
     // Not written yet (OPF has not run since it was updated): OPF where it is usually kept, the "opf"
     // folder in Documents, and Node.js from the PATH.

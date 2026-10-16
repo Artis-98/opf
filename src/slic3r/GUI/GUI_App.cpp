@@ -546,7 +546,7 @@ private:
     wxColour m_progress_bg_color;
     wxColour m_progress_fg_color;
 
-    wxString m_text_version = "Open Print Farm"; // OPF
+    wxString m_text_version = "Open Print Farm " OPF_VERSION; // OPF
     wxString m_text_action  = _L("Loading configuration") + dots;
     int      m_progress     = 0;
     int      m_progress_h   = 6;
@@ -712,7 +712,7 @@ wxString file_wildcards(FileType file_type, const std::string &custom_extension)
     return GUI::format_wxstr("%s (%s)|%s", translated_title, title, mask);
 }
 
-static std::string libslic3r_translate_callback(const char *s) { return wxGetTranslation(wxString(s, wxConvUTF8)).utf8_str().data(); }
+static std::string libslic3r_translate_callback(const char *s) { return I18N::branded(wxGetTranslation(wxString(s, wxConvUTF8))).utf8_str().data(); }
 
 #ifdef WIN32
 static GUID GUID_DEVINTERFACE_HID = { 0x4D1E55B2, 0xF16F, 0x11CF, { 0x88, 0xCB, 0x00, 0x11, 0x11, 0x00, 0x00, 0x30 } };
@@ -2656,6 +2656,33 @@ void GUI_App::init_webview_runtime()
 }
 #endif
 
+#ifndef __linux__
+// OPF: its own settings folder, "OPF Slicer" next to OrcaSlicer's, so OPF and an installed OrcaSlicer
+// do not change each other's settings. The first time, it starts from a copy of OrcaSlicer's settings
+// and presets; logs and caches stay behind. Paths go through wide strings for non-ASCII user names.
+static std::string opf_slicer_data_dir(const std::string& orca_data_dir)
+{
+    namespace fs = boost::filesystem;
+    const fs::path from(wxString::FromUTF8(orca_data_dir).ToStdWstring());
+    const fs::path to = from.parent_path() / L"OPF Slicer";
+    const std::string result = wxString(to.wstring()).ToUTF8().data();
+    boost::system::error_code ec;
+    if (fs::exists(to, ec) || !fs::is_directory(from, ec))
+        return result;
+    fs::create_directories(to, ec);
+    for (fs::directory_iterator it(from, ec), end; !ec && it != end; it.increment(ec)) {
+        const std::wstring name = it->path().filename().wstring();
+        if (name == L"log" || name == L"cache" || (name.size() > 5 && name.compare(name.size() - 5, 5, L".lock") == 0))
+            continue;
+        boost::system::error_code copy_ec;
+        fs::copy(it->path(), to / it->path().filename(), fs::copy_options::recursive | fs::copy_options::skip_existing, copy_ec);
+        if (copy_ec)
+            BOOST_LOG_TRIVIAL(warning) << "OPF: could not copy " << wxString(it->path().wstring()).ToUTF8().data() << " to its own settings folder: " << copy_ec.message();
+    }
+    return result;
+}
+#endif
+
 void GUI_App::init_app_config()
 {
 	// Profiles for the alpha are stored into the PrusaSlicer-alpha directory to not mix with the current release.
@@ -2689,6 +2716,7 @@ void GUI_App::init_app_config()
             boost::filesystem::path data_dir_path;
             #ifndef __linux__
                 std::string data_dir = wxStandardPaths::Get().GetUserDataDir().ToUTF8().data();
+                data_dir = opf_slicer_data_dir(data_dir); // OPF
                 //BBS create folder if not exists
                 data_dir_path = boost::filesystem::path(data_dir);
                 set_data_dir(data_dir);
@@ -6253,6 +6281,12 @@ void maybe_attach_updater_signature(Http& http, const std::string& canonical_que
 
 void GUI_App::check_new_version_sf(bool show_tips, int by_user)
 {
+    // OPF: OrcaSlicer's update check would offer OrcaSlicer. The farm watches for new OPF releases and
+    // offers them; Help > Check for Updates opens OPF's download page.
+    if (by_user)
+        wxLaunchDefaultBrowser("https://artis-98.github.io/opf/");
+    return;
+
     AppConfig* app_config = wxGetApp().app_config;
     bool       check_stable_only = app_config->get_bool("check_stable_update_only");
     auto version_check_url = app_config->version_check_url();
@@ -9044,7 +9078,7 @@ bool GUI_App::check_print_host_queue()
     //wxMessageDialog dialog(mainframe,
     MessageDialog dialog(mainframe,
         message,
-        wxString(SLIC3R_APP_NAME) + " - " + _(L("Ongoing uploads")),
+        wxString(SLIC3R_APP_FULL_NAME) + " - " + _(L("Ongoing uploads")),
         wxICON_QUESTION | wxYES_NO | wxNO_DEFAULT);
     if (dialog.ShowModal() == wxID_YES)
         return true;

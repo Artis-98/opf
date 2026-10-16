@@ -1321,14 +1321,25 @@ if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
 endif ()
 
 install(FILES ${CMAKE_SOURCE_DIR}/LICENSE.txt DESTINATION ".")
+
+# OPF: the farm program (Artis-98/opf packed by electron-builder) goes in "farm" next to OPF.exe, when the
+# build has put it in opf-farm/ (the Windows workflow does). Checked when installing, not configuring.
+if (WIN32)
+    install(CODE "if (EXISTS \"${CMAKE_SOURCE_DIR}/opf-farm/OPF-Farm.exe\")
+        file(INSTALL \"${CMAKE_SOURCE_DIR}/opf-farm/\" DESTINATION \"\${CMAKE_INSTALL_PREFIX}/farm\" USE_SOURCE_PERMISSIONS)
+    else ()
+        message(STATUS \"OPF: no farm in opf-farm/, installing the slicer without it\")
+    endif ()")
+endif ()
 configure_file(${LIBDIR}/dev-utils/platform/unix/fhs.hpp.in ${LIBDIR_BIN}/dev-utils/platform/unix/fhs.hpp)
 
-set (CPACK_PACKAGE_NAME "OrcaSlicer")
-set (CPACK_PACKAGE_VENDOR "SoftFever")
-set (CPACK_PACKAGE_VERSION_MAJOR "${ORCA_VERSION_MAJOR}")
-set (CPACK_PACKAGE_VERSION_MINOR "${ORCA_VERSION_MINOR}")
-set (CPACK_PACKAGE_VERSION_PATCH "${ORCA_VERSION_PATCH}")
-set (CPACK_PACKAGE_FILE_NAME "OrcaSlicer_Windows_Installer_V${SoftFever_VERSION}")
+# OPF: the installer is OPF's: its name, version, folder, shortcuts and Add/Remove Programs entry.
+set (CPACK_PACKAGE_NAME "OPF")
+set (CPACK_PACKAGE_VENDOR "SIA IITEG")
+set (CPACK_PACKAGE_VERSION_MAJOR "${OPF_VERSION_MAJOR}")
+set (CPACK_PACKAGE_VERSION_MINOR "${OPF_VERSION_MINOR}")
+set (CPACK_PACKAGE_VERSION_PATCH "${OPF_VERSION_PATCH}")
+set (CPACK_PACKAGE_FILE_NAME "OPF_Setup_${OPF_VERSION}")
 # Suffix the Windows installer with its target arch so the x64 and arm64 builds
 # produce distinct filenames (matches ARCH_SUFFIX in build_orca.yml). Same
 # CMAKE_SYSTEM_PROCESSOR mapping used by orcaslicer_copy_dlls() above.
@@ -1339,22 +1350,32 @@ if (WIN32)
         string (APPEND CPACK_PACKAGE_FILE_NAME "_x64")
     endif ()
 endif ()
-set (CPACK_PACKAGE_DESCRIPTION_SUMMARY "Orca Slicer is an open source slicer for FDM printers")
-set (CPACK_PACKAGE_HOMEPAGE_URL "https://github.com/OrcaSlicer/OrcaSlicer")
+set (CPACK_PACKAGE_DESCRIPTION_SUMMARY "OPF (Open Print Farm): a slicer and print farm for 3D printers, built on OrcaSlicer")
+set (CPACK_PACKAGE_HOMEPAGE_URL "https://github.com/Artis-98/opf")
 set (CPACK_PACKAGE_INSTALL_DIRECTORY ${CPACK_PACKAGE_NAME})
+set (CPACK_NSIS_DISPLAY_NAME "OPF (Open Print Farm)")
+set (CPACK_NSIS_PACKAGE_NAME "OPF (Open Print Farm) ${OPF_VERSION}")
+set (CPACK_NSIS_URL_INFO_ABOUT "https://artis-98.github.io/opf/")
+set (CPACK_NSIS_HELP_LINK "https://github.com/Artis-98/opf/issues")
 set (CPACK_PACKAGE_ICON "${CMAKE_SOURCE_DIR}/resources/images\\\\OrcaSlicer.ico")
 set (CPACK_NSIS_MUI_ICON "${CPACK_PACKAGE_ICON}")
 set (CPACK_NSIS_MUI_UNIICON "${CPACK_PACKAGE_ICON}")
-set (CPACK_NSIS_INSTALLED_ICON_NAME  "$INSTDIR\\\\orca-slicer.exe")
+set (CPACK_NSIS_INSTALLED_ICON_NAME  "$INSTDIR\\\\OPF.exe")
+set (CPACK_NSIS_MUI_FINISHPAGE_RUN "OPF.exe")
 set (CPACK_PACKAGE_CHECKSUM SHA256)
-set (CPACK_PACKAGE_INSTALL_REGISTRY_KEY "OrcaSlicer")
+set (CPACK_PACKAGE_INSTALL_REGISTRY_KEY "OPF")
 set (CPACK_NSIS_ENABLE_UNINSTALL_BEFORE_INSTALL ON)
 set (CPACK_NSIS_EXECUTABLES_DIRECTORY ".")
 # set (CPACK_NSIS_MODIFY_PATH "ON")
-set(CPACK_PACKAGE_EXECUTABLES "orca-slicer;OrcaSlicer")
-set(CPACK_CREATE_DESKTOP_LINKS "orca-slicer")
+set(CPACK_PACKAGE_EXECUTABLES "OPF;OPF")
+set(CPACK_CREATE_DESKTOP_LINKS "OPF")
+# The farm runs in the background (by the clock); it holds its files open, so it is closed first. On
+# uninstall it also stops starting with Windows (Electron's login item for the app named OPF).
+set (CPACK_NSIS_EXTRA_PREINSTALL_COMMANDS "nsExec::Exec 'taskkill /F /IM OPF-Farm.exe'")
+set (CPACK_NSIS_EXTRA_UNINSTALL_COMMANDS "nsExec::Exec 'taskkill /F /IM OPF-Farm.exe'
+  DeleteRegValue HKCU 'Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Run' 'electron.app.OPF'")
 set (CPACK_RESOURCE_FILE_LICENSE ${CMAKE_SOURCE_DIR}/LICENSE.txt) # must also include in install command
 
-set(CPACK_WIX_UPGRADE_GUID "058245e8-20e0-4a95-9ab7-1acfe17ad511")
+set(CPACK_WIX_UPGRADE_GUID "7c1f6a52-3d4e-4b8f-9a61-0f2e5b8c4d17")
 set(CPACK_GENERATOR NSIS)
 include(CPack)

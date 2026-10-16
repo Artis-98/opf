@@ -26,17 +26,29 @@ Prepare and Preview are OrcaSlicer's own and are kept close to upstream so its u
   (`GET /api/v1/ui/plates/<id>/project`) and opens it in Prepare. Sending it again replaces the plate
   in its place in the queue.
 - **Looks like OPF**: the name people see is OPF (`SLIC3R_APP_FULL_NAME`; `SLIC3R_APP_NAME` and
-  `SLIC3R_APP_KEY` stay OrcaSlicer, so settings, presets and files are where they were). OrcaSlicer's
-  logo files keep their names and hold OPF's empty-shelf logo and loading screen. The accent colour
+  `SLIC3R_APP_KEY` stay OrcaSlicer for file formats and profiles). Every translated string goes through
+  `I18N::branded()`, which turns "OrcaSlicer" into "OPF" except in credits, links and file names. The
+  program is `OPF.exe`, its version info says Open Print Farm and OPF's own version (`OPF_VERSION` in
+  `version.inc`; OrcaSlicer's version stays, because profiles and projects are checked against it).
+  OrcaSlicer's update check is off: Help > Check for Updates opens OPF's download page. Settings live
+  in their own folder, `%APPDATA%\OPF Slicer`, copied once from OrcaSlicer's, so an installed OrcaSlicer
+  is not affected. OrcaSlicer's
+  logo files keep their names and hold OPF's empty-shelf logo and loading screen; the window, taskbar
+  and program icons are the shelf on a white tile, so they show on a dark taskbar. The accent colour
   is Bambu green, `#00AE42`, with its hover, pressed and light shades, in place of OrcaSlicer's
   teal; the swap was made with a script over `src/slic3r`, `resources/images` and `resources/web`,
   so after merging OrcaSlicer, new teal can be swapped the same way. The About box keeps the credit
   to OrcaSlicer, PrusaSlicer and BambuStudio that their licence asks for.
-- **One window, no save questions**: `single_instance` is on (once, over a saved "false"), and
+- **One window, no save questions**: `single_instance` is on (turned on once in `AppConfig::load()`,
+  over a saved "false"; marker `opf_single_instance` = 2), and
   `save_project_choise` defaults to "no", so a new or another project never asks to save the open
   one. Add plate and Edit from the Farm tab start from a clean project without asking.
 - **Windows build** (`.github/workflows/opf_windows.yml`): Windows x64 only, on every change to `main`.
-  The installer and the portable folder are attached to each run under **Actions**.
+  It first packs the farm (Artis-98/opf, `npm run pack:win`) into `opf-farm/`, which the install step
+  puts in `farm\` next to `OPF.exe`: one installer, `OPF_Setup_<version>_x64.exe`, for the whole of OPF.
+  The installer and the portable folder are attached to each run under **Actions**; releases go on
+  Artis-98/opf. The Farm tab starts `farm\OPF-Farm.exe` when no farm answers, unless OPF's
+  `launcher.json` points at a copy run from git.
 
 ## The farm page and the slicer
 

@@ -16,6 +16,14 @@ set(ORCA_VERSION_PATCH ${CMAKE_MATCH_3})
 
 set(SLIC3R_VERSION "02.08.01.55")
 
+# OPF: the version people see (window, About, installer, downloads). OrcaSlicer's own version above stays,
+# because profiles and project files are checked against it.
+set(OPF_VERSION "0.2.0")
+string(REGEX MATCH "^([0-9]+)\\.([0-9]+)\\.([0-9]+)" OPF_VERSION_MATCH ${OPF_VERSION})
+set(OPF_VERSION_MAJOR ${CMAKE_MATCH_1})
+set(OPF_VERSION_MINOR ${CMAKE_MATCH_2})
+set(OPF_VERSION_PATCH ${CMAKE_MATCH_3})
+
 if (NOT DEFINED ORCA_UPDATER_SIG_KEY)
     set(ORCA_UPDATER_SIG_KEY "" CACHE STRING "Base64url encoded updater signature key")
 endif()

@@ -189,12 +189,10 @@ void AppConfig::set_defaults()
             set_bool("use_retina_opengl", true);
 #endif
 
-        // OPF: one window; opening OPF again brings it forward. Once, also over OrcaSlicer's saved
-        // "false", and after that as chosen in Preferences.
-        if (get("single_instance").empty() || get("opf_single_instance").empty()) {
+        // OPF: one window; opening OPF again brings it forward. A saved "false" is turned on once, in
+        // load(): this also runs before the saved file is read, from reset().
+        if (get("single_instance").empty())
             set_bool("single_instance", true);
-            set("opf_single_instance", "1");
-        }
         // OPF: do not ask to save the project before a new or another one; File > Save is there.
         if (get("save_project_choise").empty())
             set("save_project_choise", "no");
@@ -1022,6 +1020,13 @@ std::string AppConfig::load(bool read_only)
     // Override missing or keys with their defaults.
     this->set_defaults();
     m_dirty = false;
+    // OPF: one window. Turned on once over a saved "false" (OrcaSlicer's default), and after that as
+    // chosen in Preferences. Marker "1" was set by OPF 0.1, before the saved value was read, so it never
+    // took; "2" turns it on once more. set() marks the config changed, so it is saved.
+    if (get("opf_single_instance") != "2") {
+        set_bool("single_instance", true);
+        set("opf_single_instance", "2");
+    }
     return "";
 }
 
