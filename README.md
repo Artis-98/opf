@@ -10,7 +10,7 @@ Free and open source (AGPL-3.0). Your printers on your own network, no account, 
 **Download for Windows: [opf.iiteg.com](https://opf.iiteg.com/)**, or the installer on the
 [latest release](https://github.com/Artis-98/opf/releases/latest). One installer puts in everything.
 
-![The farm](farm/docs/farm.png)
+![The Farm tab in OPF](site/img/slicer-farm.png)
 
 ## What it does
 
@@ -28,7 +28,9 @@ Free and open source (AGPL-3.0). Your printers on your own network, no account, 
 - **By the clock.** A small OPF in the tray watches the farm, tells you when a print finishes, and starts
   with Windows.
 
-![The timeline](farm/docs/timeline.png)
+![The Timeline tab](site/img/slicer-timeline.png)
+
+![Send all plates, each to the printer free first](site/img/slicer-send-all.png)
 
 ## This repository
 
