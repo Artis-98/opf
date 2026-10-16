@@ -1,0 +1,53 @@
+# OPF: keeps the "farm" branch, farm/ on its own, in step with main. A farm run straight from git (OPF.bat)
+# follows that branch, so it updates without downloading the slicer. Each commit on main that changes
+# farm/ becomes one commit on the farm branch, with the same message, which the farm shows in What's new.
+name: OPF farm branch
+
+on:
+  push:
+    branches: [main]
+    paths: ['farm/**']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: opf-farm-branch
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          filter: blob:none
+
+      - name: Carry farm/ changes onto the farm branch
+        env:
+          BEFORE: ${{ github.event.before }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if ! git fetch --quiet origin farm; then
+            echo "There is no farm branch yet: nothing to carry."
+            exit 0
+          fi
+          parent=$(git rev-parse origin/farm)
+          # From the commit the farm branch last carried, or for a manual run the last 50 commits.
+          if [ -z "$BEFORE" ] || ! git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
+            BEFORE=$(git rev-list -n 1 --skip=50 HEAD || git rev-list --max-parents=0 HEAD | head -1)
+          fi
+          for c in $(git rev-list --reverse "$BEFORE..HEAD" -- farm); do
+            tree=$(git rev-parse "$c:farm")
+            [ "$tree" = "$(git rev-parse "$parent^{tree}")" ] && continue
+            parent=$(git log -1 --format=%B "$c" | \
+              GIT_AUTHOR_NAME="$(git log -1 --format=%an "$c")" \
+              GIT_AUTHOR_EMAIL="$(git log -1 --format=%ae "$c")" \
+              GIT_AUTHOR_DATE="$(git log -1 --format=%aI "$c")" \
+              git commit-tree "$tree" -p "$parent")
+            echo "carried $(git log -1 --format='%h %s' "$c")"
+          done
+          git push origin "$parent:refs/heads/farm"

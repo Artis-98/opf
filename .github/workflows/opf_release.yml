@@ -1,0 +1,50 @@
+# OPF: publishes a release from a finished "OPF Windows build" run, on GitHub's side: the installer and
+# the portable folder (zipped) from that run, the notes from .github/release-notes/v<version>.md, and the
+# tag v<version> on the commit the run built. Run it from the Actions tab or:
+#   gh workflow run opf_release.yml -f run_id=<build run id> -f version=0.2.1
+name: OPF release
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: The "OPF Windows build" run to publish
+        required: true
+      version:
+        description: The version, such as 0.2.1 (matches OPF_VERSION in version.inc)
+        required: true
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      VERSION: ${{ inputs.version }}
+      RUN_ID: ${{ inputs.run_id }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/release-notes
+
+      - name: Fetch the build's installer and portable folder
+        uses: actions/download-artifact@v4
+        with:
+          run-id: ${{ inputs.run_id }}
+          github-token: ${{ github.token }}
+          pattern: OPF_${{ inputs.version }}_Windows_x64_*
+          path: dl
+
+      - name: Publish
+        run: |
+          set -e
+          notes=".github/release-notes/v$VERSION.md"
+          [ -f "$notes" ] || { echo "No release notes at $notes"; exit 1; }
+          installer=$(ls dl/OPF_${VERSION}_Windows_x64_installer/OPF_Setup_${VERSION}_x64.exe)
+          (cd "dl/OPF_${VERSION}_Windows_x64_portable" && zip -qr9 "$GITHUB_WORKSPACE/OPF_${VERSION}_Windows_x64_portable.zip" . -x '*.pdb')
+          sha=$(gh run view "$RUN_ID" --json headSha --jq .headSha)
+          gh release create "v$VERSION" --target "$sha" --title "OPF $VERSION" --notes-file "$notes" --latest \
+            "$installer" "OPF_${VERSION}_Windows_x64_portable.zip"

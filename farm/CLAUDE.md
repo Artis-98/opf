@@ -22,7 +22,8 @@ Run tests and typecheck before every commit.
 
 ## How the owner runs OPF, and what that means for every push
 
-The owner runs OPF on their Windows PC straight from `main`, through
+The owner runs OPF on their Windows PC straight from git: a clone that follows the `farm` branch (farm/ of
+`main` on its own, kept in step by the OPF farm branch workflow), through
 `OPF.bat` → `scripts/launch.cjs` (git pull, npm install when the lockfile
 changed, build, open). An open OPF checks GitHub every 3 minutes and offers
 "Update ready · Restart". So:
