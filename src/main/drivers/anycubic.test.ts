@@ -6,9 +6,7 @@ import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { strToU8, zipSync } from "fflate";
-import { createServer } from "node:http";
-import type { AddressInfo } from "node:net";
-import { decryptLogin, gcodeOf, handshake, postWithProgress, sign, uploadForm } from "./anycubic";
+import { decryptLogin, gcodeOf, handshake, sign, uploadForm } from "./anycubic";
 
 const TOKEN = "0123456789abcdefFEDCBA9876543210";
 
@@ -48,29 +46,6 @@ describe("Anycubic LAN handshake", () => {
 });
 
 describe("sending a file", () => {
-  it("posts the file in pieces and says how much has gone", async () => {
-    const got: Buffer[] = [];
-    const server = createServer((req, res) => {
-      req.on("data", (c: Buffer) => got.push(c));
-      req.on("end", () => res.end(JSON.stringify({ code: 200 })));
-    });
-    await new Promise<void>((r) => server.listen(0, "127.0.0.1", () => r()));
-    const { port } = server.address() as AddressInfo;
-    const body = Buffer.alloc(300 * 1024, 7);
-    const seen: number[] = [];
-    try {
-      const r = await postWithProgress(`http://127.0.0.1:${port}/gcode_upload`, body, { "Content-Type": "application/octet-stream" }, (f) => seen.push(f));
-      expect(r.status).toBe(200);
-      expect(JSON.parse(r.text)).toEqual({ code: 200 });
-    } finally {
-      server.close();
-    }
-    expect(Buffer.concat(got).equals(body)).toBe(true);
-    expect(seen.length).toBeGreaterThan(1);
-    expect(seen.at(-1)).toBe(1);
-    expect([...seen].sort((a, b) => a - b)).toEqual(seen);
-  });
-
   it("sends a form the printer reads as a file name and the G-code", async () => {
     const { body, type } = uploadForm("Clips-j-1.gcode", strToU8("G28\nG1 X10\n"));
     const got: Record<string, string> = {};

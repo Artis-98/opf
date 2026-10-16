@@ -12,8 +12,6 @@ export interface StartOptions {
   anyFilament?: boolean;
   /** Bed levelling, flow calibration and the rest, as chosen for this printer. Unset: OPF's defaults. */
   print?: PrintOptions;
-  /** How much of the plate has reached the printer, 0–1, while it is sent. */
-  onProgress?: (fraction: number) => void;
 }
 
 export interface PrinterDriver {

@@ -17,7 +17,6 @@
 
 import { createDecipheriv, createHash, randomBytes, randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
-import { request as httpRequest } from "node:http";
 import mqtt, { type MqttClient } from "mqtt";
 import { unzipSync } from "fflate";
 import { emptyLive, type Emit, type PrinterDriver, type StartOptions } from "../../core/driver";
@@ -102,40 +101,6 @@ export function uploadForm(name: string, gcode: Uint8Array): { body: Buffer; typ
     Buffer.from(`\r\n--${boundary}--\r\n`),
   ]);
   return { body, type: `multipart/form-data; boundary=${boundary}` };
-}
-
-/**
- * POSTs a body in pieces, telling onProgress how much has gone (0–1), and resolves with the answer.
- * Redirects are not followed; the caller treats anything but 2xx as a refusal.
- */
-export function postWithProgress(url: string, body: Buffer, headers: Record<string, string>, onProgress?: (fraction: number) => void, timeoutMs = 300_000): Promise<{ status: number; text: string }> {
-  return new Promise((resolve, reject) => {
-    const req = httpRequest(url, { method: "POST", headers: { ...headers, "Content-Length": String(body.length) } }, (res) => {
-      const chunks: Buffer[] = [];
-      res.on("data", (c: Buffer) => chunks.push(c));
-      res.on("end", () => resolve({ status: res.statusCode ?? 0, text: Buffer.concat(chunks).toString("utf8") }));
-      res.on("error", reject);
-    });
-    const timer = setTimeout(() => req.destroy(new Error("timed out")), timeoutMs);
-    req.on("close", () => clearTimeout(timer));
-    req.on("error", reject);
-    const piece = 64 * 1024;
-    let sent = 0;
-    const write = () => {
-      while (sent < body.length) {
-        const end = Math.min(sent + piece, body.length);
-        const more = req.write(body.subarray(sent, end));
-        sent = end;
-        onProgress?.(sent / body.length);
-        if (!more) {
-          req.once("drain", write);
-          return;
-        }
-      }
-      req.end();
-    };
-    write();
-  });
 }
 
 /** Plain G-code for the printer: the file itself, or the plate's G-code inside a .gcode.3mf. */
@@ -313,13 +278,16 @@ export class AnycubicDriver implements PrinterDriver {
     const target = `http://${this.cfg.host}:${url.port || INFO_PORT}${url.pathname}${url.search}`;
     const form = uploadForm(name, gcode);
     try {
-      const r = await postWithProgress(target, form.body,
-        { "Content-Type": form.type, "X-File-Length": String(gcode.length), "User-Agent": "AnycubicSlicerNext/1.3.9.4", Accept: "*/*" },
-        opts.onProgress);
-      if (r.status < 200 || r.status > 299) throw new Error(`HTTP ${r.status}`);
+      const r = await fetch(target, {
+        method: "POST",
+        body: form.body,
+        headers: { "Content-Type": form.type, "X-File-Length": String(gcode.length), "User-Agent": "AnycubicSlicerNext/1.3.9.4", Accept: "*/*" },
+        signal: AbortSignal.timeout(300_000),
+        redirect: "error",
+      });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
       // The printer answers in JSON; a code other than 200 there is a refusal.
-      let answer: Json | null = null;
-      try { answer = JSON.parse(r.text) as Json; } catch { /* not JSON: taken as accepted */ }
+      const answer = (await r.json().catch(() => null)) as Json | null;
       if (answer && typeof answer.code === "number" && answer.code !== 200) throw new Error(typeof answer.msg === "string" ? answer.msg : `code ${answer.code}`);
     } catch (e) {
       throw new Error(`Could not upload ${job.name} to ${this.cfg.name}: ${(e as Error).message}`);

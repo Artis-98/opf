@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OPF changelog: what changed in each version</title>
+<meta name="description" content="What changed in each version of OPF, Open Print Farm, and what is coming next.">
+<link rel="canonical" href="https://opf.iiteg.com/changelog.html">
+<meta property="og:site_name" content="OPF">
+<meta property="og:title" content="OPF changelog">
+<meta property="og:description" content="What changed in each version of OPF, and what is coming next.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://opf.iiteg.com/changelog.html">
+<meta property="og:image" content="https://opf.iiteg.com/img/farm.png">
+<meta name="theme-color" content="#15181a">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="style.css?v=021">
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap nav">
+    <a class="brand" href="./"><img src="icon.svg" alt="" width="28" height="28">OPF</a>
+    <a class="link wide" href="./#farm">What it does</a>
+    <a class="link wide here" href="changelog.html">Changelog</a>
+    <a class="link" href="./#download">Download</a>
+    <a class="link" href="https://github.com/Artis-98/opf">Source</a>
+  </div>
+</header>
+
+<div class="hero" style="padding-bottom:0">
+  <div class="wrap">
+    <h1 style="font-size:clamp(34px,5vw,50px)">Changelog</h1>
+    <p class="lede">What changed in each version, in the words of someone using it,
+      and what is coming next.</p>
+  </div>
+</div>
+
+<section style="padding-top:20px">
+  <div class="wrap" style="max-width:860px;margin-left:0">
+
+    <!-- Each release: what somebody can now DO, not which function was renamed. -->
+
+    <div class="release next" id="upcoming" hidden>
+      <div class="head"><span class="ver">Coming next</span><span class="badge planned">planned</span></div>
+      <p>Read live from our own task board.</p>
+      <div class="upcoming-groups" id="upcoming-list"></div>
+    </div>
+
+    <div class="release current">
+      <div class="head"><span class="ver">0.2.1</span><span class="when">16 October 2026</span><span class="badge">current</span></div>
+      <p>Printers found on your network, added once, and every plate sent in one go.</p>
+      <ul>
+        <li><strong>Add a printer finds your printers.</strong> It looks on your network as it opens:
+          Bambu Lab printers with their name, model, address and serial number, Anycubic Kobra
+          printers in LAN mode with their model and address. Pick one; for a Bambu printer only the
+          access code from its screen is left to type.</li>
+        <li><strong>A printer is added once.</strong> No setup wizard on first start: a printer added
+          in the Farm tab gets its printer profile and filaments in Prepare by itself.</li>
+        <li><strong>Send all plates.</strong> Arrange a big job over many plates and send them all at
+          once: OPF slices what is not sliced yet and puts each plate in a queue, on the printer you
+          picked or, with none picked, on whichever is free first. The print button now offers Send
+          plate, Send all plates and the three exports; printing past the farm is gone.</li>
+        <li><strong>Sync from the farm.</strong> The Sync buttons fill the filament list with what is
+          loaded in the printer picked in the Farm tab, its colours and materials, and Bambu's exact
+          filament where the printer reports it.</li>
+        <li><strong>Textured PEI</strong> is the plate new projects start on.</li>
+        <li><strong>Add a printer starts empty</strong>, with grey hints, so the model list shows every
+          printer; picking a model fills in the connection.</li>
+        <li><strong>OPF's logo</strong> in the setup wizard and on the slicer's pages, and OPF's own
+          site, here, at opf.iiteg.com.</li>
+      </ul>
+    </div>
+
+    <div class="release">
+      <div class="head"><span class="ver">0.2.0</span><span class="when">16 October 2026</span></div>
+      <p>The first OPF you can install: one installer for the slicer and the farm.</p>
+      <ul>
+        <li><strong>One installer</strong> puts in OPF Slicer and the farm. Open OPF from the Start
+          menu; the farm starts with it and stays by the clock.</li>
+        <li><strong>Before each print:</strong> bed levelling, flow calibration, resonance
+          compensation and timelapse, ticked per printer.</li>
+        <li><strong>Plates named after their parts</strong>, not Untitled.</li>
+        <li><strong>One window.</strong> Open OPF in the tray brings the open slicer forward.</li>
+        <li><strong>OPF everywhere:</strong> the program is OPF.exe, the icon is the shelf on a white
+          tile so it shows on a dark taskbar, and the slicer says OPF where it said OrcaSlicer, its
+          credits kept. OPF keeps its own settings, so an installed OrcaSlicer is left alone.</li>
+        <li><strong>Updates:</strong> an installed OPF checks for a new release every few hours and
+          offers it.</li>
+      </ul>
+    </div>
+
+    <div class="release">
+      <div class="head"><span class="ver">0.1</span><span class="when">14 October 2026</span></div>
+      <p>The first version, run from its source on the farm it was made for.</p>
+      <ul>
+        <li><strong>The farm:</strong> printers on shelves, a queue for each, Bed is clear, start
+          next, Duplicate, and Edit to open a queued plate again.</li>
+        <li><strong>The Timeline:</strong> the next 48 hours of every printer, with working hours.</li>
+        <li><strong>OPF Slicer:</strong> OrcaSlicer with Farm and Timeline tabs, Send to farm, and
+          Bambu green.</li>
+        <li><strong>Printers:</strong> Bambu Lab over the local network, and Anycubic Kobra 3 and S1
+          in LAN mode.</li>
+        <li><strong>The small OPF by the clock:</strong> every printer at a glance, a note when a
+          print finishes, and it starts with Windows.</li>
+      </ul>
+    </div>
+
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div class="foot-grid">
+      <div>
+        <h4>OPF</h4>
+        <a href="./#farm">What it does</a>
+        <a href="./#download">Download</a>
+        <a href="changelog.html">Changelog</a>
+        <a href="https://github.com/Artis-98/opf/releases">All releases</a>
+      </div>
+      <div>
+        <h4>Source</h4>
+        <a href="https://github.com/Artis-98/opf">The farm</a>
+        <a href="https://github.com/Artis-98/opf-slicer">OPF Slicer</a>
+        <a href="https://github.com/Artis-98/opf/issues">Report a problem</a>
+      </div>
+      <div>
+        <h4>Legal</h4>
+        <a href="licences.html">Licences and notices</a>
+        <a href="https://iiteg.com">iiteg.com</a>
+      </div>
+    </div>
+    <div class="foot-bottom">
+      <span>OPF is made by SIA IITEG in Latvia. Not affiliated with Bambu Lab, Anycubic or OrcaSlicer.</span>
+      <span>Exploring what comes next.</span>
+    </div>
+  </div>
+</footer>
+<script src="upcoming.js?v=021"></script>
+</body>
+</html>

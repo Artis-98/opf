@@ -13,7 +13,6 @@ import { slicePlate } from "./slicer";
 import { startHost, type Host } from "./host";
 import type { UpdateHooks } from "./api";
 import { changesSinceLastRun, checkForRelease, checkForUpdate, isCheckout, restartThroughLauncher, type Change, type UpdateState } from "./updater";
-import { checkFarmUpdate, installFarmUpdate, markGood, readState } from "./farm-update";
 import { slicerExe, startMini, type Mini } from "./mini";
 import { discoverPrinters } from "./discover";
 import icon from "../../resources/icon.png?asset";
@@ -82,45 +81,26 @@ app.on("second-instance", (_e, argv) => {
   if (app.isReady() && !argv.includes("--background")) showWindow();
 });
 
-/** The farm version running: a small farm update's (boot.ts says which), otherwise the installed one. */
-const running = process.env.OPF_FARM_UPDATE || app.getVersion();
-
 /**
  * Updates. A copy running from its git folder (started by OPF.bat) pulls and restarts itself. An
- * installed copy asks GitHub now and then: a small farm update is downloaded and offered as a restart
- * (farm-update.ts); a new installer is offered as its download page.
+ * installed copy asks GitHub for a newer release now and then, and offers its download page.
  * The window asks over IPC; the web page (in OPF Slicer, or a browser) over the local web server.
  */
-function watchForUpdates(): UpdateHooks & { cameUp(): void } {
+function watchForUpdates(): UpdateHooks {
   const root = app.getAppPath();
-  const userData = app.getPath("userData");
   let state: UpdateState | null = null;
   let whatsNew: Change[] = [];
   const fromGit = !app.isPackaged && isCheckout(root);
-  const runtimeId = `${process.pid}-${Date.now()}`;
-  const info = (): UpdateState => ({ behind: 0, changes: [], ...state,
-    runningVersion: running, installedVersion: app.getVersion(), runtimeId });
-  const publish = (next: UpdateState | null) => {
-    state = next;
-    broadcast("opf:updateReady", info());
-  };
-  const hooks = {
-    state: info,
+  const hooks: UpdateHooks = {
+    state: () => state,
     whatsNew: () => {
       const w = whatsNew;
       whatsNew = [];
       return w;
     },
     restart: () => {
-      if (state?.downloading) return;
       if (state?.download) {
         void shell.openExternal(state.download);
-        return;
-      }
-      if (state?.ready) {
-        // The same way it was started (in the background or not); boot.ts then runs the update.
-        app.relaunch({ args: process.argv.slice(1) });
-        app.quit();
         return;
       }
       if (!fromGit) return;
@@ -128,41 +108,17 @@ function watchForUpdates(): UpdateHooks & { cameUp(): void } {
       restartThroughLauncher(root, !win);
       app.quit();
     },
-    /** The farm is up: a small update that started it works, and what it changed is shown once. */
-    cameUp: () => {
-      if (!app.isPackaged) return;
-      try {
-        const changes = markGood(userData, process.env.OPF_FARM_UPDATE);
-        if (changes.length) whatsNew = changes;
-      } catch { /* counted again next start */ }
-    },
   };
   ipcMain.handle("opf:updateState", hooks.state);
   ipcMain.handle("opf:whatsNew", hooks.whatsNew);
   ipcMain.handle("opf:restart", hooks.restart);
   if (!fromGit && !app.isPackaged) return hooks;
-  if (fromGit) changesSinceLastRun(root, join(userData, "version.json")).then((c) => (whatsNew = c), () => {});
-
-  /** Installed: a small farm update first (downloaded right away), otherwise a newer installer. */
-  const checkInstalled = async (): Promise<UpdateState | null> => {
-    const m = await checkFarmUpdate(running, __OPF_DEPS__, userData).catch(() => null);
-    if (m) {
-      const update = { behind: Math.max(1, m.changes.length), changes: m.changes.length ? m.changes : [{ subject: `OPF farm ${m.version}`, body: "" }] };
-      publish({ ...update, downloading: true });
-      try {
-        if (readState(userData)?.version !== m.version) await installFarmUpdate(m, userData, running);
-      } catch (e) {
-        publish(null);
-        throw e;
-      }
-      return { ...update, ready: true };
-    }
-    return checkForRelease(app.getVersion());
-  };
+  if (fromGit) changesSinceLastRun(root, join(app.getPath("userData"), "version.json")).then((c) => (whatsNew = c), () => {});
   const check = () =>
-    (fromGit ? checkForUpdate(root) : checkInstalled()).then(
+    (fromGit ? checkForUpdate(root) : checkForRelease(app.getVersion())).then(
       (s) => {
-        publish(s);
+        state = s;
+        if (s) broadcast("opf:updateReady", s);
       },
       () => { /* offline: try again later */ },
     );
@@ -257,7 +213,6 @@ app.whenReady().then(() => {
   });
 
   if (!background) createWindow();
-  updates.cameUp();
   app.on("activate", showWindow);
 });
 

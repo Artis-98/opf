@@ -27,8 +27,7 @@ describe("Anycubic reports", () => {
     expect(st({ state: "auto_leveling" })).toBe("preparing");
     expect(st({ state: "paused", pause: 1 })).toBe("paused");
     expect(st({ state: "finished" })).toBe("finished");
-    expect(st({ state: "stoped" })).toBe("stopped"); // the parts may still be on the bed
-    expect(st({ state: "canceled" })).toBe("stopped");
+    expect(st({ state: "stoped" })).toBe("idle");
     expect(st(null, "free")).toBe("idle");
     expect(st(null, "busy")).toBe("preparing"); // loading filament: not free for a plate
   });

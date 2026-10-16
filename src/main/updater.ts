@@ -20,14 +20,8 @@ export interface UpdateState {
   /** Commits on GitHub that this copy does not have yet. */
   behind: number;
   changes: Change[];
-  /** A new installer: the page to download it from. */
+  /** An installed copy cannot update itself: the page to download the new version from. */
   download?: string;
-  /** An installed copy has downloaded a small farm update (farm-update.ts): Restart runs it. */
-  ready?: boolean;
-  downloading?: boolean;
-  runningVersion?: string;
-  installedVersion?: string;
-  runtimeId?: string;
 }
 
 /** Where the installer is offered. */
@@ -93,8 +87,7 @@ const LOG_FORMAT = `--format=%s${SEP_FIELD}%b${SEP_RECORD}`;
 export async function checkForUpdate(root: string): Promise<UpdateState | null> {
   await git(root, ["fetch", "--quiet", "origin"]);
   const branch = (await git(root, ["rev-parse", "--abbrev-ref", "HEAD"])).trim();
-  // Only what changed in the farm's own folder: in the OPF repository the slicer lives beside it.
-  const changes = parseLog(await git(root, ["log", LOG_FORMAT, "-n", "30", `HEAD..origin/${branch}`, "--", "."]));
+  const changes = parseLog(await git(root, ["log", LOG_FORMAT, "-n", "30", `HEAD..origin/${branch}`]));
   return changes.length ? { behind: changes.length, changes } : null;
 }
 
@@ -111,7 +104,7 @@ export async function changesSinceLastRun(root: string, stateFile: string): Prom
   writeFileSync(stateFile, JSON.stringify({ seen: head }));
   if (!seen || seen === head) return [];
   try {
-    return parseLog(await git(root, ["log", LOG_FORMAT, "-n", "30", `${seen}..${head}`, "--", "."]));
+    return parseLog(await git(root, ["log", LOG_FORMAT, "-n", "30", `${seen}..${head}`]));
   } catch {
     return []; // the old commit is gone (history rewritten): nothing sensible to show
   }
@@ -127,7 +120,7 @@ export function restartThroughLauncher(root: string, background = false) {
     cwd: root,
     detached: true,
     stdio: "ignore",
-    windowsHide: true,
+    windowsHide: background,
   });
   child.unref();
 }

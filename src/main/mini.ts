@@ -83,35 +83,15 @@ export function startMini(farm: FarmService, opts: MiniOptions): Mini {
   }
 
   // Starting with Windows (and macOS): the farm is watched from the moment the PC is on.
-  // On Windows the entry has one fixed name, as installed copies have had: the copy run from git, once its
-  // electron.exe carries OPF's name (scripts/branded-electron.cjs), would otherwise get a second entry.
-  const win = process.platform === "win32";
-  const LOGIN_NAME = "electron.app.OPF";
-  const loginItem = {
-    path: process.execPath,
-    args: app.isPackaged ? ["--background"] : [app.getAppPath(), "--background"],
-    ...(win ? { name: LOGIN_NAME } : {}),
-  };
-  const canStartWithSystem = win || process.platform === "darwin";
-  const startsWithSystem = () => {
-    if (!canStartWithSystem) return false;
-    const s = app.getLoginItemSettings(loginItem);
-    return win && s.launchItems ? s.launchItems.some((i) => i.name === LOGIN_NAME) : s.openAtLogin;
-  };
+  const loginItem = app.isPackaged
+    ? { path: process.execPath, args: ["--background"] }
+    : { path: process.execPath, args: [app.getAppPath(), "--background"] };
+  const canStartWithSystem = process.platform === "win32" || process.platform === "darwin";
+  const startsWithSystem = () => canStartWithSystem && app.getLoginItemSettings(loginItem).openAtLogin;
   const setStartsWithSystem = (on: boolean) => {
     app.setLoginItemSettings({ openAtLogin: on, ...loginItem });
     menu();
   };
-  // An entry for this farm under another name (the copy run from git used to be "electron.app.Electron")
-  // moves to the fixed name once, so the PC never starts the farm twice. Electron lists only entries that
-  // start this same program, and leaves --background out of their args, so the program decides.
-  if (win) {
-    try {
-      const others = (app.getLoginItemSettings(loginItem).launchItems ?? []).filter((i) => i.name !== LOGIN_NAME);
-      for (const i of others) app.setLoginItemSettings({ openAtLogin: false, path: i.path, args: i.args, name: i.name });
-      if (others.length) app.setLoginItemSettings({ openAtLogin: true, ...loginItem });
-    } catch { /* the menu still offers it */ }
-  }
   // On by default, once: after that it is whatever was chosen in the menu.
   const asked = join(app.getPath("userData"), "start-with-windows.json");
   if (canStartWithSystem && !existsSync(asked)) {

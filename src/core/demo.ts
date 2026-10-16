@@ -2,7 +2,7 @@
 // "Try the demo farm" button. Nothing here talks to real hardware.
 
 import { DEFAULT_SETTINGS } from "./farm";
-import { amsOf, SIM_SEND_SEC, SimulatedPrinter, type SimScenario } from "./simulator";
+import { amsOf, SimulatedPrinter, type SimScenario } from "./simulator";
 import type { DriverFactory } from "./driver";
 import { NotYetSupported } from "./driver";
 import type { FarmData, PlateJob, PrinterConfig } from "./types";
@@ -105,6 +105,6 @@ export function demoFarm(): { data: FarmData; scenarios: Record<string, SimScena
 export function demoFactory(scenarios: Record<string, SimScenario>, speed = 1): DriverFactory {
   return (cfg, emit) => {
     if (cfg.id === "vrn-01") return new NotYetSupported({ ...cfg, driver: "moonraker" }, (p) => emit({ ...p, error: "Last seen 2 hours ago. Check power and network." }));
-    return new SimulatedPrinter(cfg, emit, scenarios[cfg.id] ?? {}, speed, SIM_SEND_SEC);
+    return new SimulatedPrinter(cfg, emit, scenarios[cfg.id] ?? {}, speed);
   };
 }

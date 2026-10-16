@@ -2,7 +2,7 @@
 // for trying OPF before pointing it at real machines. It behaves like a Bambu
 // printer would: heats, prints, finishes and then waits with parts on the bed.
 
-import type { Emit, PrinterDriver, StartOptions } from "./driver";
+import type { Emit, PrinterDriver } from "./driver";
 import type { AmsUnit, LiveState, PlateJob, PrinterConfig } from "./types";
 
 export interface SimScenario {
@@ -15,9 +15,6 @@ export interface SimScenario {
   nozzleTarget?: number;
   bedTarget?: number;
 }
-
-/** Seconds a plate takes to reach a simulated printer in the demo and for test printers, at real speed. */
-export const SIM_SEND_SEC = 4;
 
 export function amsOf(...slots: [color: string, material: string, remain?: number][]): AmsUnit[] {
   return [{
@@ -35,8 +32,7 @@ export class SimulatedPrinter implements PrinterDriver {
 
   private speedOf: () => number;
 
-  /** sendSec: how long a plate takes to reach it at real speed, so starting one looks like a real printer. */
-  constructor(_cfg: PrinterConfig, private emit: Emit, scenario: SimScenario = {}, speed: number | (() => number) = 1, private sendSec = 0) {
+  constructor(_cfg: PrinterConfig, private emit: Emit, scenario: SimScenario = {}, speed: number | (() => number) = 1) {
     this.speedOf = typeof speed === "number" ? () => speed : speed;
     const printing = scenario.status === "printing" || scenario.status === "paused" || scenario.status === "error";
     this.total = scenario.totalSec ?? 0;
@@ -96,7 +92,7 @@ export class SimulatedPrinter implements PrinterDriver {
         this.s.bed = { current: 45, target: 0 };
         this.s.activeSlot = null;
       }
-    } else if (this.s.status === "finished" || this.s.status === "idle" || this.s.status === "stopped") {
+    } else if (this.s.status === "finished" || this.s.status === "idle") {
       this.s.nozzle.current = Math.max(26, this.s.nozzle.current - 2);
       this.s.bed.current = Math.max(25, this.s.bed.current - 0.5);
     } else {
@@ -106,15 +102,8 @@ export class SimulatedPrinter implements PrinterDriver {
     this.emit({ ...this.s, nozzle: { ...this.s.nozzle }, bed: { ...this.s.bed } });
   }
 
-  async start(job: PlateJob, opts: StartOptions = {}) {
+  async start(job: PlateJob) {
     if (this.s.status === "printing" || this.s.status === "preparing" || this.s.status === "paused") throw new Error("The printer is busy.");
-    const stepMs = (this.sendSec * 1000) / this.speed / 10;
-    if (stepMs > 0) {
-      for (let i = 1; i <= 10; i++) {
-        await new Promise((r) => setTimeout(r, stepMs));
-        opts.onProgress?.(i / 10);
-      }
-    }
     this.total = Math.max(60, Math.round(job.minutes * 60));
     Object.assign(this.s, {
       status: "preparing", jobName: job.name, progress: 0, remainingSec: this.total, error: null,
@@ -137,10 +126,8 @@ export class SimulatedPrinter implements PrinterDriver {
     this.emit({ status: "printing", error: null });
   }
 
-  /** Like a Bambu printer: it keeps calling the print stopped, with its name, until the next one starts. */
   async stop() {
-    if (this.s.status !== "printing" && this.s.status !== "preparing" && this.s.status !== "paused" && this.s.status !== "error") return;
-    Object.assign(this.s, { status: "stopped", remainingSec: null, error: null, activeSlot: null });
+    Object.assign(this.s, { status: "idle", jobName: null, progress: 0, remainingSec: null, error: null, activeSlot: null, layer: null, totalLayers: null });
     this.s.nozzle.target = 0;
     this.s.bed.target = 0;
     this.emit({ ...this.s });
@@ -148,7 +135,7 @@ export class SimulatedPrinter implements PrinterDriver {
 }
 
 /** The simulator for a printer added in OPF, with the AMS colours saved in its settings. */
-export function simulatorFor(cfg: PrinterConfig, emit: Emit, speed: number | (() => number), scenario?: SimScenario, sendSec = 0): SimulatedPrinter {
+export function simulatorFor(cfg: PrinterConfig, emit: Emit, speed: number | (() => number), scenario?: SimScenario): SimulatedPrinter {
   const ams = cfg.sim?.ams?.length ? amsOf(...cfg.sim.ams.map((a) => [a.color, a.material] as [string, string])) : undefined;
-  return new SimulatedPrinter(cfg, emit, scenario ?? { status: "idle", ams }, speed, sendSec);
+  return new SimulatedPrinter(cfg, emit, scenario ?? { status: "idle", ams }, speed);
 }

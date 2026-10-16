@@ -30,7 +30,7 @@ const background = args.has("--background");
 
 // In the background nobody sees this window, so it goes to launcher.log too.
 let logFile = null;
-if (background || args.has("--quiet")) {
+if (background) {
   try {
     logFile = path.join(settingsDir(), "launcher.log");
     fs.mkdirSync(path.dirname(logFile), { recursive: true });
@@ -46,12 +46,12 @@ function say(msg) {
 }
 
 function run(cmd, cmdArgs, opts = {}) {
-  const r = spawnSync(cmd, cmdArgs, { cwd: root, stdio: "inherit", shell: win && /\.cmd$/i.test(cmd), ...opts, windowsHide: true });
+  const r = spawnSync(cmd, cmdArgs, { cwd: root, stdio: "inherit", shell: win && /\.cmd$/i.test(cmd), ...opts });
   return r.status === 0;
 }
 
 function capture(cmd, cmdArgs) {
-  const r = spawnSync(cmd, cmdArgs, { cwd: root, encoding: "utf8", windowsHide: true });
+  const r = spawnSync(cmd, cmdArgs, { cwd: root, encoding: "utf8" });
   return r.status === 0 ? r.stdout.trim() : null;
 }
 
@@ -134,10 +134,9 @@ function desktopShortcut() {
   const ps = [
     "$d = [Environment]::GetFolderPath('Desktop')",
     "$p = Join-Path $d 'OPF.lnk'",
+    "if (-not (Test-Path $p)) {",
     "  $s = (New-Object -ComObject WScript.Shell).CreateShortcut($p)",
-    "if (-not (Test-Path $p) -or $s.TargetPath -eq (Join-Path $env:OPF_ROOT 'OPF.bat')) {",
-    "  $s.TargetPath = Join-Path $env:WINDIR 'System32\\wscript.exe'",
-    "  $s.Arguments = '\"' + (Join-Path $env:OPF_ROOT 'scripts\\launch-hidden.vbs') + '\"'",
+    "  $s.TargetPath = Join-Path $env:OPF_ROOT 'OPF.bat'",
     "  $s.WorkingDirectory = $env:OPF_ROOT",
     "  $s.IconLocation = (Join-Path $env:OPF_ROOT 'resources\\icon.ico') + ',0'",
     "  $s.Description = 'OPF, Open Print Farm'",
@@ -146,7 +145,7 @@ function desktopShortcut() {
     "}",
   ].join("; ");
   const r = spawnSync("powershell.exe", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", ps], {
-    cwd: root, encoding: "utf8", windowsHide: true, env: { ...process.env, OPF_ROOT: root },
+    cwd: root, encoding: "utf8", env: { ...process.env, OPF_ROOT: root },
   });
   if (r.stdout && r.stdout.includes("created")) say("Put an OPF icon on your desktop. Open OPF from there next time.");
 }
@@ -154,8 +153,7 @@ function desktopShortcut() {
 /** Starts OPF: without a window for OPF Slicer, or with its own window. */
 function start(withoutWindow) {
   require(path.join(root, "scripts", "ensure-electron.cjs")).ensureElectron();
-  // On Windows: OPF-Farm.exe, Electron with OPF's name and icon, so Windows says OPF.
-  const electron = require(path.join(root, "scripts", "branded-electron.cjs")).brandedElectron(require(path.join(root, "node_modules", "electron")), say);
+  const electron = require(path.join(root, "node_modules", "electron"));
   const env = { ...process.env };
   delete env.ELECTRON_RUN_AS_NODE;
   // OPF_ELECTRON_ARGS: extra Electron switches, for testing the launcher (e.g. a separate --user-data-dir).

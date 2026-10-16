@@ -155,7 +155,7 @@ export function statusOf(s: AnycubicState): PrinterStatus {
   if (p) {
     const st = (p.state ?? "").toLowerCase();
     if (st === "finished") return "finished";
-    if (st === "stopping" || st === "stoped" || st === "stopped" || st === "canceled" || st === "cancelled") return "stopped";
+    if (st === "stopping" || st === "stoped" || st === "stopped") return "idle";
     if (PAUSED.includes(st) || p.pause === 1 || p.pause === 2) return "paused";
     if (PREPARING.includes(st)) return "preparing";
     if (PRINTING.includes(st)) return "printing";

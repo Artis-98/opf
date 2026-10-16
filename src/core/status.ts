@@ -5,24 +5,17 @@ import type { LiveState, PlateJob, PrinterStatus, Snapshot } from "./types";
 
 export const STATUS_LABEL: Record<PrinterStatus, string> = {
   printing: "Printing", preparing: "Heating", idle: "Idle", paused: "Paused", error: "Error", finished: "Finished", offline: "Offline",
-  sending: "Sending", stopped: "Stopped",
 };
 
-/**
- * A plate on its way to the printer shows as sending; a stopped plate as stopped until the bed is
- * cleared, whatever the printer says; a plate still on the bed counts as finished even if the printer
- * itself says idle.
- */
+/** A plate still on the bed counts as finished even if the printer itself says idle. */
 export function displayStatus(live: LiveState | undefined, current: PlateJob | null): PrinterStatus {
-  if (live?.sending) return "sending";
-  if (current?.stopped) return "stopped";
   const s = live?.status ?? "offline";
   if (current && s === "idle") return "finished";
   return s;
 }
 
 /** Statuses that wait for someone at the printer. */
-export const NEEDS_YOU: PrinterStatus[] = ["error", "finished", "paused", "stopped"];
+export const NEEDS_YOU: PrinterStatus[] = ["error", "finished", "paused"];
 
 export function statuses(snap: Snapshot): Record<string, PrinterStatus> {
   return Object.fromEntries(snap.data.printers.map((p) => [p.id, displayStatus(snap.live[p.id], snap.data.current[p.id])]));
@@ -31,7 +24,7 @@ export function statuses(snap: Snapshot): Record<string, PrinterStatus> {
 /** "2 printing · 1 needs you", for the tray icon. */
 export function farmSummary(snap: Snapshot): string {
   const st = Object.values(statuses(snap));
-  const printing = st.filter((s) => s === "printing" || s === "preparing" || s === "sending").length;
+  const printing = st.filter((s) => s === "printing" || s === "preparing").length;
   const needs = st.filter((s) => NEEDS_YOU.includes(s)).length;
   const parts = [`${printing} printing`];
   if (needs) parts.push(`${needs} need${needs === 1 ? "s" : ""} you`);
@@ -64,8 +57,6 @@ export function farmNews(before: Record<string, PrinterStatus> | null, snap: Sna
       news.push({ printerId: p.id, title: `${p.name} finished`, body: next ? `${job} is done. Clear the bed to start ${next}.` : `${job} is done. Clear the bed.` });
     } else if (is === "error") {
       news.push({ printerId: p.id, title: `${p.name} needs you`, body: snap.live[p.id]?.error ?? "The printer stopped." });
-    } else if (is === "stopped" && (RUNNING.includes(was) || was === "paused" || was === "error")) {
-      news.push({ printerId: p.id, title: `${p.name} stopped`, body: `${job} was stopped. Print it again or cancel it, then clear the bed.` });
     } else if (is === "paused" && RUNNING.includes(was)) {
       news.push({ printerId: p.id, title: `${p.name} is paused`, body: `${job} is paused. The nozzle cools while it waits.` });
     }

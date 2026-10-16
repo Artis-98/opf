@@ -14,8 +14,8 @@ import { clock, dur } from "../format";
 import { schedule } from "./Farm";
 
 // The printers that wait for someone come first.
-const ORDER: Record<PrinterStatus, number> = { error: 0, stopped: 1, finished: 1, paused: 2, printing: 3, preparing: 3, sending: 3, idle: 4, offline: 5 };
-const PILL: Partial<Record<PrinterStatus, string>> = { printing: "ok", preparing: "ok", sending: "ok", error: "err", finished: "warn", paused: "warn", stopped: "warn" };
+const ORDER: Record<PrinterStatus, number> = { error: 0, finished: 1, paused: 2, printing: 3, preparing: 3, idle: 4, offline: 5 };
+const PILL: Partial<Record<PrinterStatus, string>> = { printing: "ok", preparing: "ok", error: "err", finished: "warn", paused: "warn" };
 
 export function MiniView() {
   const { snap } = useFarm();
@@ -79,15 +79,7 @@ function MiniPrinter({ printer: p, status: st }: { printer: PrinterConfig; statu
   );
 
   let body: React.ReactNode;
-  if (st === "sending") {
-    const sent = live?.sending?.progress ?? null;
-    body = (
-      <>
-        <div className="line">Sending {live?.sending?.job ?? "the plate"}{sent === null ? "…" : ` · ${Math.round(sent * 100)}%`}</div>
-        <div className="bar"><i style={{ width: `${((sent ?? 0) * 100).toFixed(1)}%`, background: "var(--accent)" }} /></div>
-      </>
-    );
-  } else if (st === "printing" || st === "preparing" || st === "paused") {
+  if (st === "printing" || st === "preparing" || st === "paused") {
     const end = schedule(snap!, p.id, now)[0]?.end;
     body = (
       <>
@@ -98,28 +90,6 @@ function MiniPrinter({ printer: p, status: st }: { printer: PrinterConfig; statu
           <span>done {clock(end, now)}</span>
         </div>
         {st === "paused" && <div className="row"><button className="btn sm pri" onClick={() => act("resume", p.id)}>Resume</button></div>}
-      </>
-    );
-  } else if (st === "stopped" && cur?.stopped === "ask") {
-    body = (
-      <>
-        <div className="line">{job} was stopped.</div>
-        <div className="row">
-          <button className="btn sm pri" onClick={() => act("afterStop", p.id, true)}>Print it again</button>
-          <button className="btn sm" onClick={() => act("afterStop", p.id, false)}>Cancel it</button>
-        </div>
-      </>
-    );
-  } else if (st === "stopped") {
-    const again = cur?.stopped === "again";
-    const following = again || !!next;
-    body = (
-      <>
-        <div className="line">{job} was stopped. Take the parts off.</div>
-        <div className="row">
-          {following && <button className="btn sm pri" onClick={() => act("clearBed", p.id, true)}>{again ? "Bed is clear, print it again" : `Bed is clear, start ${next!.name}`}</button>}
-          <button className={`btn sm ${following ? "" : "pri"}`} onClick={() => act("clearBed", p.id, false)}>{following ? "Clear, don't start" : "Bed is clear"}</button>
-        </div>
       </>
     );
   } else if (st === "finished") {
