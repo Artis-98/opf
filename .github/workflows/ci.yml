@@ -23,20 +23,5 @@ jobs:
       - run: npm run build
       - run: npm run build:demo
 
-  windows-installer:
-    # Builds the Windows installer when a version tag such as v0.1.0 is pushed.
-    if: startsWith(github.ref, 'refs/tags/v')
-    needs: check
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      - run: npm run dist:win
-      - uses: actions/upload-artifact@v4
-        with:
-          name: opf-windows
-          path: release/*.exe
+# The Windows installer is built with OPF Slicer (Artis-98/opf-slicer, "OPF Windows build"),
+# which packs this farm into it. Releases on this repository carry that installer.

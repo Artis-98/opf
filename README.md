@@ -1,13 +1,17 @@
-# OPF — Open Print Farm
+# OPF: Open Print Farm
 
 A desktop app for running a 3D printer farm the way it stands in your
 workshop. Every printer sits on a shelf, grey until you pick it. Pick one and
 it lights up: what it is printing, what is loaded in its AMS, and the plates
 lined up behind it, which you can reorder, move to another printer or add to.
-Plates are laid out in a Bambu Studio–style Prepare screen and sliced by the
-real Bambu Studio or OrcaSlicer.
+OPF Slicer, OrcaSlicer with the farm built in, slices the plates and sends them
+into the queues.
 
 Free and open source (AGPL-3.0). No cloud, no account.
+
+**Download for Windows:** [artis-98.github.io/opf](https://artis-98.github.io/opf/), or the
+installer on the [latest release](https://github.com/Artis-98/opf/releases/latest). One
+installer puts in OPF Slicer and this farm; open **OPF** from the Start menu.
 
 ![The farm view](docs/farm.png)
 
@@ -56,22 +60,25 @@ Free and open source (AGPL-3.0). No cloud, no account.
 
 ## Status
 
-Version 0.1, first build. Be clear about what has been checked where:
+Version 0.2.0, the first one shipped as an installer. What has been checked where:
 
 | Part | State |
 |---|---|
-| Farm, shelves, queues, timeline, Prepare | Working, in the desktop app and the browser demo |
+| Farm, shelves, queues, timeline, Duplicate, Edit, the small OPF by the clock | Working, in daily use |
+| Bambu Lab A1 and A1 mini over LAN: status, AMS colours, send and start | In daily use on the owner's farm. Needs Developer Mode on the printer to start prints. |
+| Bambu Lab P1 and X1 series | Same protocol; parser tested against messages shaped like their reports, not run on one |
+| Anycubic Kobra 3 / 3 Max / S1 over LAN | Status and controls written to the community's protocol notes; starting a print not yet confirmed on a Kobra 3 Max |
+| Before each print (bed levelling, flow, resonance, timelapse) | New in 0.2.0, sent the way Bambu Studio and the Anycubic app send them |
+| OPF Slicer: Send to farm, Edit, one window | Working; the 0.2.0 installer is the first build with the farm inside |
 | Scheduling, filament matching, estimates, farm actions, local API | Covered by tests (`npm test`) |
-| Bambu status (incl. AMS colours) | Parser tested against messages shaped like real X1C/P1 reports. **Not yet run against a real printer.** |
-| Bambu send and start (FTPS + `project_file`) | Written to the documented LAN protocol. **Not yet run against a real printer.** Needs Developer Mode on the printer. |
-| Plates sent from OrcaSlicer | Checked against OrcaSlicer 2.4.2: its OctoPrint upload format, and a plate it sliced read back into a queue (time, grams, colours) |
-| Slicing with Bambu Studio / OrcaSlicer from OPF's Prepare | Command line checked with OrcaSlicer 2.4.2 and its built-in A1 presets |
 | Klipper / Moonraker, PrusaLink, OctoPrint | Listed, not connected yet: they show as offline and keep their queue |
 
-The first job is to point it at a real Bambu printer and fix whatever the
-printer disagrees with.
-
 ## Everyday use on Windows
+
+Most people: install OPF from the [download page](https://artis-98.github.io/opf/). An
+installed OPF tells you when a new release is out and links to it.
+
+Running it from this repository instead, always on the newest `main`:
 
 1. Once: in the `opf` folder, double-click **OPF.bat**. It puts an **OPF**
    icon on your desktop and opens OPF.
@@ -111,13 +118,13 @@ Try it in a browser with simulated printers, no Electron needed:
 npm run demo         # http://localhost:5199
 ```
 
-Build an installer:
+Pack the farm on its own (OPF Slicer's Windows build does this and puts it in its installer):
 
 ```bash
-npm run dist:win     # release/OPF Setup x.y.z.exe
-npm run dist:mac
-npm run dist:linux
+npm run pack:win     # release/win-unpacked/OPF-Farm.exe
 ```
+
+The download page is `docs/`, served by GitHub Pages.
 
 Checks:
 

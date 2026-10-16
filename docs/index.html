@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OPF: Open Print Farm, free software for a farm of 3D printers</title>
+<meta name="description" content="OPF runs a whole farm of 3D printers from one program: a queue for every printer, a timeline of the next two days, and OrcaSlicer's Prepare and Preview built in. Free and open source, for Windows.">
+<link rel="canonical" href="https://artis-98.github.io/opf/">
+<meta property="og:site_name" content="OPF">
+<meta property="og:title" content="OPF: Open Print Farm">
+<meta property="og:description" content="Your whole print farm in one program. A queue for every printer, a timeline, and OrcaSlicer built in. Free and open source.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://artis-98.github.io/opf/">
+<meta property="og:image" content="https://artis-98.github.io/opf/farm.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#15181a">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "OPF (Open Print Farm)",
+  "description": "Free and open source software for running a farm of 3D printers: queues, a timeline, and OrcaSlicer's slicer built in.",
+  "applicationCategory": "UtilitiesApplication",
+  "operatingSystem": "Windows 10, Windows 11",
+  "url": "https://artis-98.github.io/opf/",
+  "downloadUrl": "https://github.com/Artis-98/opf/releases/latest",
+  "screenshot": "https://artis-98.github.io/opf/farm.png",
+  "license": "https://www.gnu.org/licenses/agpl-3.0.html",
+  "isAccessibleForFree": true,
+  "offers": {"@type": "Offer", "price": "0", "priceCurrency": "EUR"},
+  "publisher": {"@type": "Organization", "name": "IITEG", "url": "https://iiteg.com/"},
+  "sameAs": ["https://github.com/Artis-98/opf"]
+}
+</script>
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="style.css?v=020">
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap nav">
+    <a class="brand" href="./"><img src="icon.svg" alt="" width="28" height="28">OPF</a>
+    <a class="link wide" href="#farm">What it does</a>
+    <a class="link wide" href="#printers">Printers</a>
+    <a class="link" href="#download">Download</a>
+    <a class="link" href="https://github.com/Artis-98/opf">Source</a>
+  </div>
+</header>
+
+<!-- ------------------------------------------------------------- hero -->
+<div class="hero">
+  <div class="wrap">
+    <div class="eyebrow"><span class="dot"></span><span id="badge-version">Version 0.2.0 · free · open source</span></div>
+    <h1>Your whole print farm,<br><span class="quiet">in one program.</span></h1>
+    <p class="lede">
+      OPF slices a plate, puts it in a printer's queue, starts it when the bed
+      is clear, and shows every printer and the next two days at a glance.
+      OrcaSlicer's Prepare and Preview are built in, so there is nothing else to
+      open.
+    </p>
+    <div class="cta-row">
+      <a class="btn primary download-link" href="https://github.com/Artis-98/opf/releases/latest">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 19h16"/></svg>
+        Download for Windows
+      </a>
+      <a class="btn ghost" href="#farm">See what it does</a>
+    </div>
+    <p class="cta-note"><strong>One installer</strong> for the slicer and the farm · Windows 10 and 11, 64-bit · Bambu Lab and Anycubic printers on your own network</p>
+
+    <div class="showcase">
+      <div class="frame">
+        <div class="frame-bar"><i></i><i></i><i></i><span>Farm · OPF</span></div>
+        <img src="farm.png" width="1520" height="900" alt="OPF's Farm tab: printers on their shelves, each with its time left, and one printer open on the right with its live state, the boxes for bed levelling and calibration, its filament and its queue of upcoming plates.">
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ------------------------------------------------------------- facts -->
+<section class="tight">
+  <div class="wrap">
+    <div class="facts">
+      <div class="fact"><b>Free</b><span>AGPL-3.0, the source is on GitHub</span></div>
+      <div class="fact"><b>Local</b><span>Printers over your own network, no cloud account</span></div>
+      <div class="fact"><b>One program</b><span>Farm, Timeline, Prepare and Preview</span></div>
+      <div class="fact"><b>By the clock</b><span>A small OPF in the tray keeps watching</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- -------------------------------------------------------------- farm -->
+<section id="farm" class="rule">
+  <div class="wrap split">
+    <div class="text">
+      <h2>The farm, the way it stands in your workshop.</h2>
+      <p>Printers sit on shelves like the real ones. Each shows its time left, or
+        that it is finished and needs someone, or that something went wrong.
+        Pick one and it opens: the print, the temperatures, what is loaded, and
+        the plates lined up behind it.</p>
+      <ul class="points">
+        <li><b>A queue for every printer.</b> Drag plates to reorder, move one to another printer, duplicate it.</li>
+        <li><b>Bed is clear, start next.</b> A finished plate waits for a person, then the next one goes.</li>
+        <li><b>Before each print.</b> Bed levelling, flow calibration, resonance compensation and timelapse, ticked per printer.</li>
+        <li><b>Filament checked.</b> A plate that needs a colour that is not loaded says so, and asks before starting anyway.</li>
+        <li><b>Edit a queued plate.</b> It opens in Prepare; send it again and it takes its old place.</li>
+      </ul>
+    </div>
+    <div class="cards-col">
+      <div class="grid two">
+        <div class="card"><span class="tag">Farm</span><h3>Every printer at a glance</h3><p>Time left, idle, finished, paused, error or offline, without clicking anything.</p></div>
+        <div class="card"><span class="tag">Queue</span><h3>Plates, not files</h3><p>Each plate keeps its project, so it can be opened and changed until it prints.</p></div>
+        <div class="card"><span class="tag">Names</span><h3>No column of Untitled</h3><p>A plate nobody named is named after its part.</p></div>
+        <div class="card"><span class="tag">Tray</span><h3>Small OPF by the clock</h3><p>Every printer in a popup, a note when a print finishes, and it starts with Windows.</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ---------------------------------------------------------- timeline -->
+<section class="rule">
+  <div class="wrap split flip">
+    <div class="frame">
+      <div class="frame-bar"><i></i><i></i><i></i><span>Timeline · OPF</span></div>
+      <img src="timeline.png" width="1520" height="900" alt="OPF's Timeline: the next 48 hours of every printer, each print and queued plate as a bar, with the hours nobody is in shaded.">
+    </div>
+    <div class="text">
+      <h2>The next two days, every printer.</h2>
+      <p>The Timeline lays out what each printer is doing and what comes next.
+        Prints run through the night, but the next plate waits for someone to
+        clear the bed, so the hours nobody is in are shaded and plates line up
+        for the morning.</p>
+      <ul class="points">
+        <li><b>Working hours and days</b> of your own, in Settings.</li>
+        <li><b>When each printer is free,</b> so a new plate goes where it finishes first.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ------------------------------------------------------------ slicer -->
+<section class="rule">
+  <div class="wrap">
+    <h2>OrcaSlicer inside, not beside.</h2>
+    <p class="section-lede">OPF's slicer is OrcaSlicer with four tabs: Farm, Timeline,
+      Prepare and Preview. Prepare and Preview are OrcaSlicer's own, kept close
+      to it, with its profiles and settings. The print button sends the plate to
+      the farm.</p>
+    <div class="grid">
+      <div class="card"><span class="tag">Send to farm</span><h3>Straight into a queue</h3><p>Pick a printer in the Farm tab, slice, send. Or send it and let OPF pick the printer that is free first.</p></div>
+      <div class="card"><span class="tag">Right printer</span><h3>No wrong-model plates</h3><p>A plate sliced for an A1 mini is not sent to an A1. OPF says so instead.</p></div>
+      <div class="card"><span class="tag">No questions</span><h3>New plate, no save prompt</h3><p>After a plate is sent there is nothing to save. File, Save is there when you want it.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ---------------------------------------------------------- printers -->
+<section id="printers" class="rule">
+  <div class="wrap">
+    <h2>Printers</h2>
+    <p class="section-lede">OPF talks to printers over your own network, in LAN mode.
+      Nothing has to be reachable from the internet, and no maker's account is involved.</p>
+    <div class="printers">
+      <div class="printer"><b>Bambu Lab A1, A1 mini</b><span>In daily use on OPF's own farm</span></div>
+      <div class="printer"><b>Bambu Lab P1 and X1 series</b><span>Same LAN protocol, less tested</span></div>
+      <div class="printer new"><b>Anycubic Kobra 3, 3 Max, S1</b><span>With or without an ACE</span></div>
+      <div class="printer"><b>Test printers</b><span>Simulated, to try OPF without printing</span></div>
+    </div>
+    <p style="color:var(--faint);font-size:15px;margin-top:18px">Bambu printers need LAN mode, and Developer Mode for OPF to start and stop prints.
+      Klipper, PrusaLink and OctoPrint printers can be listed but are not driven yet.
+      OPF also answers like an OctoPrint server, so stock OrcaSlicer, Bambu Studio and PrusaSlicer can send plates into its queues.</p>
+  </div>
+</section>
+
+<!-- ---------------------------------------------------------- download -->
+<section id="download" class="rule">
+  <div class="wrap">
+    <h2>Download</h2>
+    <p class="section-lede">One installer puts in the slicer and the farm. Open OPF from
+      the Start menu or the desktop; the farm starts with it and stays by the
+      clock.</p>
+
+    <div class="download-box" style="margin-bottom:28px">
+      <div>
+        <h3 style="margin-bottom:4px">OPF for Windows</h3>
+        <div class="ver"><span id="dl-version">0.2.0</span> · Windows 10 and 11, 64-bit · <a id="dl-notes" href="https://github.com/Artis-98/opf/releases/latest">release notes</a> · <a id="dl-portable" href="https://github.com/Artis-98/opf/releases/latest">portable zip</a></div>
+      </div>
+      <a class="btn primary download-link" href="https://github.com/Artis-98/opf/releases/latest">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 19h16"/></svg>
+        Download the installer
+      </a>
+    </div>
+
+    <ol class="steps">
+      <li><b>Run the installer.</b> Windows may say it protected your PC, because OPF is not code-signed yet: choose <em>More info</em>, then <em>Run anyway</em>.</li>
+      <li><b>Open OPF</b> and add your printers in the Farm tab: Add printer, then the printer's IP address (and for Bambu, its access code and serial number).</li>
+      <li><b>Slice in Prepare and send.</b> The plate lands in the printer's queue and starts when you say the bed is clear.</li>
+    </ol>
+
+    <div class="note">
+      <strong>This is an early version.</strong> OPF runs a real farm every day,
+      but it is young: Anycubic support is new, and some of OrcaSlicer's rarely
+      used dialogs still use its name. Reports and ideas are welcome on
+      <a href="https://github.com/Artis-98/opf/issues">GitHub</a>.
+      OPF keeps its own settings, so an installed OrcaSlicer is left as it is.
+    </div>
+  </div>
+</section>
+
+<!-- ------------------------------------------------------------- about -->
+<section class="rule">
+  <div class="wrap">
+    <div class="grid two">
+      <div class="card">
+        <span class="tag">Open source</span>
+        <h3>Read it, change it, build on it</h3>
+        <p style="margin-bottom:14px">OPF is free software under the GNU AGPL 3.0, like the
+          OrcaSlicer, Bambu Studio, PrusaSlicer and Slic3r it is built on. The farm and the
+          slicer are on GitHub, and every release is built there from the source you can read.</p>
+        <a class="btn ghost" href="https://github.com/Artis-98/opf">github.com/Artis-98/opf</a>
+      </div>
+      <div class="card">
+        <span class="tag">Made by</span>
+        <h3>IITEG, in Latvia</h3>
+        <p style="margin-bottom:14px">IITEG is a small engineering company that designs and
+          makes things, from 3D printed parts to electronics. OPF is the software we
+          built to run our own printers.</p>
+        <a class="btn ghost" href="https://iiteg.com">iiteg.com</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div class="foot-grid">
+      <div>
+        <h4>OPF</h4>
+        <a href="#farm">What it does</a>
+        <a href="#printers">Printers</a>
+        <a href="#download">Download</a>
+        <a href="https://github.com/Artis-98/opf/releases">All releases</a>
+      </div>
+      <div>
+        <h4>Source</h4>
+        <a href="https://github.com/Artis-98/opf">The farm</a>
+        <a href="https://github.com/Artis-98/opf-slicer">OPF Slicer</a>
+        <a href="https://github.com/Artis-98/opf/issues">Report a problem</a>
+      </div>
+      <div>
+        <h4>Legal</h4>
+        <a href="licences.html">Licences and notices</a>
+        <a href="https://iiteg.com">iiteg.com</a>
+      </div>
+    </div>
+    <div class="foot-bottom">
+      <span>OPF is made by SIA IITEG in Latvia. Not affiliated with Bambu Lab, Anycubic or OrcaSlicer.</span>
+      <span>Exploring what comes next.</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+/* The download buttons and the version come from the latest release on
+ * GitHub, so the page never offers a version that is not published. If
+ * GitHub cannot be reached, the links in the HTML still lead to the
+ * release page. */
+(async () => {
+  try {
+    const r = await fetch("https://api.github.com/repos/Artis-98/opf/releases/latest", { headers: { Accept: "application/vnd.github+json" } });
+    if (!r.ok) return;
+    const rel = await r.json();
+    const version = String(rel.tag_name || "").replace(/^v/i, "");
+    const installer = (rel.assets || []).find((a) => /^OPF_Setup_.*\.exe$/i.test(a.name));
+    const portable = (rel.assets || []).find((a) => /portable.*\.zip$/i.test(a.name));
+    if (installer) {
+      for (const a of document.querySelectorAll(".download-link")) a.href = installer.browser_download_url;
+    }
+    if (portable) document.getElementById("dl-portable").href = portable.browser_download_url;
+    if (rel.html_url) document.getElementById("dl-notes").href = rel.html_url;
+    if (version) {
+      document.getElementById("dl-version").textContent = version + (installer ? " · " + Math.round(installer.size / 1048576) + " MB" : "");
+      document.getElementById("badge-version").textContent = "Version " + version + " · free · open source";
+    }
+  } catch (e) { /* offline: the release page links stand */ }
+})();
+</script>
+</body>
+</html>
