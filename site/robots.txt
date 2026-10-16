@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://opf.iiteg.com/sitemap.xml

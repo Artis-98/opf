@@ -46,7 +46,7 @@ and installs `release/win-unpacked` as `farm\` next to `OPF.exe`; the farm progr
 `farm\OPF-Farm.exe`. When the Farm tab finds no farm it starts that one with `--background`, unless
 `launcher.json` points at a git copy (the owner's PC). An installed farm (`app.isPackaged`) does not
 pull from git: it asks GitHub for the latest release of Artis-98/opf every few hours and offers the
-download page (`DOWNLOAD_PAGE` in `src/main/updater.ts`, the site in `docs/`). Its settings folder
+download page (`DOWNLOAD_PAGE` in `src/main/updater.ts`: opf.iiteg.com, the site in `site/`). Its settings folder
 is the same `%APPDATA%\OPF`. Keep `package.json`'s `version` in step with the release tag.
 
 ## OPF Slicer (Artis-98/opf-slicer)

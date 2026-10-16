@@ -9,7 +9,7 @@ into the queues.
 
 Free and open source (AGPL-3.0). No cloud, no account.
 
-**Download for Windows:** [artis-98.github.io/opf](https://artis-98.github.io/opf/), or the
+**Download for Windows:** [opf.iiteg.com](https://opf.iiteg.com/), or the
 installer on the [latest release](https://github.com/Artis-98/opf/releases/latest). One
 installer puts in OPF Slicer and this farm; open **OPF** from the Start menu.
 
@@ -75,7 +75,7 @@ Version 0.2.0, the first one shipped as an installer. What has been checked wher
 
 ## Everyday use on Windows
 
-Most people: install OPF from the [download page](https://artis-98.github.io/opf/). An
+Most people: install OPF from [opf.iiteg.com](https://opf.iiteg.com/). An
 installed OPF tells you when a new release is out and links to it.
 
 Running it from this repository instead, always on the newest `main`:
@@ -124,7 +124,7 @@ Pack the farm on its own (OPF Slicer's Windows build does this and puts it in it
 npm run pack:win     # release/win-unpacked/OPF-Farm.exe
 ```
 
-The download page is `docs/`, served by GitHub Pages.
+The website is `site/`, uploaded to opf.iiteg.com (`bash ~/.claude/deploy.sh push opf site` on the owner's PC); its Coming next list is read live from the admin board by `tools/api/opf-upcoming.php`. `docs/` holds the pictures this README shows, and forwards the old GitHub Pages address to opf.iiteg.com.
 
 Checks:
 
