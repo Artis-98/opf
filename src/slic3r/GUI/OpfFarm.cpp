@@ -8,6 +8,7 @@
 #include <set>
 #include <utility>
 
+#include <boost/algorithm/string/case_conv.hpp>
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/filesystem/fstream.hpp>
 #include <boost/filesystem/operations.hpp>
@@ -28,6 +29,7 @@
 #include "Tab.hpp"
 #include "format.hpp"
 #include "libslic3r/AppConfig.hpp"
+#include "libslic3r/Config.hpp"
 #include "libslic3r/Format/bbs_3mf.hpp"
 #include "libslic3r/Preset.hpp"
 #include "libslic3r/PresetBundle.hpp"
@@ -202,7 +204,17 @@ void OpfFarm::on_page_message(const wxString& message)
             edit_plate(text("job"), text("name"), plate != msg.end() && plate->is_number_integer() ? plate->get<int>() : 1);
         } else if (command == "opf_target")
             set_target(text("printer"), text("name"));
-        else if (command == "opf_new_plate")
+        else if (command == "opf_online") {
+            m_online.clear();
+            const auto list = msg.find("printers");
+            if (list != msg.end() && list->is_array())
+                for (const json& p : *list)
+                    if (p.is_object() && p.contains("id") && p["id"].is_string() && valid_id(p["id"].get<std::string>()) &&
+                        p.contains("name") && p["name"].is_string() && p.contains("model") && p["model"].is_string())
+                        m_online.push_back({p["id"].get<std::string>(), p["name"].get<std::string>(), p["model"].get<std::string>()});
+            if (MainFrame* frame = wxGetApp().mainframe)
+                frame->refresh_send_to_farm();
+        } else if (command == "opf_new_plate")
             new_plate(text("printer"), text("name"), text("machine"));
         else if (command == "opf_printers") {
             // The farm's printers: each one's printer profile is set up here too, so a printer is added once.
@@ -228,12 +240,31 @@ void OpfFarm::set_target(const std::string& printer, const std::string& name)
         frame->refresh_send_to_farm();
 }
 
+std::pair<std::string, std::string> OpfFarm::destination() const
+{
+    if (!m_target_printer.empty())
+        return {m_target_printer, m_target_name};
+    // With none picked the farm puts a plate on a printer of the model it was sliced for, so when only one
+    // printer of that model can take it, that is where it goes.
+    const auto* opt = wxGetApp().preset_bundle->printers.get_edited_preset().config.option<ConfigOptionString>("printer_model");
+    const std::string    model = opt != nullptr ? boost::algorithm::to_lower_copy(opt->value) : std::string();
+    const OnlinePrinter* found = nullptr;
+    for (const OnlinePrinter& p : m_online)
+        if (!model.empty() && boost::algorithm::to_lower_copy(p.model) == model) {
+            if (found != nullptr)
+                return {};
+            found = &p;
+        }
+    return found != nullptr ? std::make_pair(found->id, found->name) : std::pair<std::string, std::string>();
+}
+
 wxString OpfFarm::send_label() const
 {
-    if (m_target_name.empty())
+    const std::string name = destination().second;
+    if (name.empty())
         return _L("Send plate to farm");
     // TRN: The print button's label. %1% is the name of a printer in the farm, such as "A1 mini 2".
-    return format_wxstr(_L("Send plate to %1%"), from_u8(m_target_name));
+    return format_wxstr(_L("Send plate to %1%"), from_u8(name));
 }
 
 void OpfFarm::new_plate(const std::string& printer, const std::string& name, const std::string& machine)
@@ -359,8 +390,8 @@ void OpfFarm::upload_plate(int plate_idx, const std::string& name, const fs::pat
     if (replace_edited)
         if (const std::string job = editing_job(); !job.empty())
             http.form_add("replace", job);
-    if (!m_target_printer.empty())
-        http.form_add("printer", m_target_printer);
+    if (const std::string printer = destination().first; !printer.empty())
+        http.form_add("printer", printer);
     http.form_add_file("file", sliced, base + ".gcode.3mf")
         .form_add_file("project", project, base + ".3mf")
         .timeout_max(300)
@@ -373,10 +404,11 @@ void OpfFarm::upload_plate(int plate_idx, const std::string& name, const fs::pat
 
 wxString OpfFarm::send_all_label() const
 {
-    if (m_target_name.empty())
+    const std::string name = destination().second;
+    if (name.empty())
         return _L("Send all plates to farm");
     // TRN: The print button's label. %1% is the name of a printer in the farm, such as "A1 mini 2".
-    return format_wxstr(_L("Send all plates to %1%"), from_u8(m_target_name));
+    return format_wxstr(_L("Send all plates to %1%"), from_u8(name));
 }
 
 void OpfFarm::send_all_plates()
@@ -517,12 +549,12 @@ void OpfFarm::finish_sending_all(const wxString& error)
 
 void OpfFarm::sync_filaments()
 {
-    if (m_target_printer.empty()) {
+    const std::string printer = destination().first;
+    if (printer.empty()) {
         show_info(wxGetApp().mainframe, _L("Pick a printer in the Farm tab first. Sync then fills the filaments with what is loaded in it."),
                   _L("Sync filaments with the farm"));
         return;
     }
-    const std::string printer = m_target_printer;
     Http::get(into_u8(farm_url()) + "api/v1/ui/printers/" + printer + "/filaments")
         .timeout_max(20)
         .on_complete([this, printer](std::string body, unsigned) {

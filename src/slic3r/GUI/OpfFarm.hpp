@@ -76,8 +76,19 @@ private:
     void install_printers(const std::vector<std::pair<std::string, std::string>>& machines);
     void apply_filaments(const std::string& printer, const std::string& body);
 
+    // The printer a plate goes to (id, name): the one picked in the Farm tab, or the only one online of the
+    // current printer profile's model. Empty when OPF chooses among several.
+    std::pair<std::string, std::string> destination() const;
+
+    struct OnlinePrinter
+    {
+        std::string id, name, model;
+    };
+
     std::string                           m_target_printer;
     std::string                           m_target_name;
+    // The farm's printers that can take a plate now (the farm page's opf_online message).
+    std::vector<OnlinePrinter>            m_online;
     std::string                           m_editing_job;
     boost::filesystem::path               m_editing_path;
     bool                                  m_sending{false};

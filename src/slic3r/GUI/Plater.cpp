@@ -4147,6 +4147,9 @@ void Sidebar::update_presets(Preset::Type preset_type)
 
         if (GUI::wxGetApp().plater())
             GUI::wxGetApp().plater()->update_machine_sync_status();
+        // OPF: with no printer picked in the Farm tab, the print button names the printer of this model.
+        if (MainFrame* frame = wxGetApp().mainframe)
+            frame->refresh_send_to_farm();
 
         Layout();
 

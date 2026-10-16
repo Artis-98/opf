@@ -71,6 +71,7 @@ The page talks to the slicer with `window.wx.postMessage(JSON.stringify(message)
 | `opf_new_plate`  | `printer`, `name`, `machine`   | New project in Prepare, with that printer profile.      |
 | `opf_edit_plate` | `job`, `name`, `plate`         | Opens the plate's project in Prepare.                   |
 | `opf_printers`   | `machines`: `[{model, preset}]` | Sets up printer profiles not set up yet.               |
+| `opf_online`     | `printers`: `[{id, name, model}]` | With none picked, the only printer online of the profile's model is the target. |
 
 After a plate is sent the slicer shows the Farm tab and calls `window.opfShowJob(<job id>)`; after Send all
 plates it also calls `window.opfToast(<text>)` with how many plates went where.
