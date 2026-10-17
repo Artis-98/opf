@@ -2,6 +2,7 @@ import { useFarm, useNow } from "../state";
 import { displayStatus, schedule, STATUS_LABEL } from "./Farm";
 import { inWorkingHours } from "../../../core/schedule";
 import { clock, dayName } from "../format";
+import { printerPicture } from "../components/PrinterArt";
 
 const HOURS = 48;
 const PXH = 44;
@@ -56,9 +57,13 @@ export function TimelineView({ onPick }: { onPick: (id: string) => void }) {
             const st = displayStatus(snap.live[p.id], snap.data.current[p.id]);
             const slots = schedule(snap, p.id, now);
             const q = snap.data.queues[p.id]?.length ?? 0;
+            const picture = printerPicture(p.model);
             return (
               <div key={p.id} className="tl-row">
-                <button className="tl-label" onClick={() => onPick(p.id)}><b>{p.name}</b><span>{STATUS_LABEL[st]}{q ? ` · ${q} queued` : ""}</span></button>
+                <button className={`tl-label ${picture ? "with-pic" : ""}`} onClick={() => onPick(p.id)}>
+                  {picture && <img src={picture} alt="" />}
+                  <span className="tl-text"><b>{p.name}</b><span>{STATUS_LABEL[st]}{q ? ` · ${q} queued` : ""}</span></span>
+                </button>
                 <div className="tl-track">
                   {closed.map((c, i) => <div key={i} className="night" style={{ left: c.l, width: c.w }} />)}
                   {st === "offline" && <button className="blk off" style={{ left: 4, width: 260 }} onClick={() => onPick(p.id)}>Offline{q ? ` · ${q} plate${q > 1 ? "s" : ""} waiting` : ""}</button>}
