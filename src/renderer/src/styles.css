@@ -129,6 +129,15 @@ h1, h2, h3, h4 { text-wrap: balance; }
 .pc-foot span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pc.on { border-color: var(--accent); background: var(--panel-2); box-shadow: 0 0 0 3px var(--accent-soft); color: var(--fg); }
 .pc.on .pc-vis svg { filter: none; }
+/* The model's picture, half grey until the printer is picked, with its AMS spools standing next to it. */
+.pp { position: relative; display: block; height: 78px; }
+.pp img { height: 78px; width: 78px; object-fit: contain; display: block; filter: grayscale(0.6) opacity(0.85); transition: filter 0.2s; }
+.pc.on .pp img { filter: none; }
+.pc.s-offline .pp img { filter: grayscale(1) opacity(0.5); }
+.pp-ams { position: absolute; left: 100%; bottom: 8px; margin-left: 2px; display: flex; flex-direction: column; gap: 3px; padding: 4px 3px; border-radius: 999px; background: var(--panel-2); border: 1px solid var(--line); }
+.pp-ams i { width: 8px; height: 8px; border-radius: 50%; border: 1px solid rgba(0, 0, 0, 0.35); }
+.pp-ams i.empty { border: 1px dashed var(--muted); }
+.insp-pic { width: 54px; height: 54px; object-fit: contain; flex: none; margin: -6px 0 -6px -4px; }
 .pc.on .bar i { background: var(--accent); }
 .pc.on .pill { background: var(--accent-soft); color: var(--accent); }
 .pc.s-error { border-color: color-mix(in srgb, var(--err) 60%, var(--line)); }
@@ -223,6 +232,9 @@ button.slot-empty:hover { border-color: var(--grey); color: var(--fg-2); }
 .tl-label { position: sticky; left: 0; z-index: 3; background: var(--panel); border-right: 1px solid var(--line); padding: 0 12px; display: flex; flex-direction: column; justify-content: center; text-align: left; border-top: 0; border-left: 0; border-bottom: 0; }
 .tl-label b { font-size: 13px; }
 .tl-label span { font-size: 11px; color: var(--muted); }
+.tl-label.with-pic { flex-direction: row; align-items: center; justify-content: flex-start; gap: 8px; padding-left: 6px; }
+.tl-label img { width: 36px; height: 36px; object-fit: contain; flex: none; }
+.tl-label .tl-text { display: flex; flex-direction: column; min-width: 0; font-size: inherit; color: inherit; }
 .tl-track { position: relative; }
 .tl-axis { height: 30px; position: sticky; top: 0; z-index: 4; background: var(--panel); }
 .tick { position: absolute; top: 0; bottom: 0; font-size: 11px; color: var(--muted); padding: 8px 0 0 5px; border-left: 1px solid var(--line); font-family: var(--mono); white-space: nowrap; }
@@ -316,6 +328,9 @@ button.slot-empty:hover { border-color: var(--grey); color: var(--fg-2); }
 .found-item.on { border-color: var(--accent); background: var(--accent-soft); }
 .found-item span { font-size: 12px; color: var(--muted); font-family: var(--mono); }
 .found-item .found-note { color: var(--warn); font-family: inherit; }
+.found-item.with-pic { grid-template-columns: auto minmax(0, 1fr); align-items: center; column-gap: 8px; padding-left: 6px; }
+.found-item img { width: 40px; height: 40px; object-fit: contain; }
+.found-item .found-text { display: grid; gap: 1px; min-width: 0; font: inherit; color: inherit; }
 .secret { display: flex; gap: 6px; }
 .secret input { flex: 1; font-family: var(--mono); font-size: 12px; }
 .section-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); font-weight: 600; margin: 4px 0 -4px; }

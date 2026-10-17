@@ -3,6 +3,7 @@ import { useFarm } from "../state";
 import { opf } from "../bridge";
 import type { DriverKind, FoundPrinter, PrinterConfig, Settings } from "../../../core/types";
 import { Icon } from "../components/icons";
+import { printerPicture } from "../components/PrinterArt";
 import type { Change } from "../../../preload/api";
 
 function Dialog({ title, onClose, children, footer }: { title: string; onClose: () => void; children: ReactNode; footer: ReactNode }) {
@@ -131,13 +132,19 @@ export function PrinterDialog({ id, place, onClose, onSaved }: { id: string | nu
           </div>
           {fresh.length > 0 && (
             <div className="found-list">
-              {fresh.map((fp) => (
-                <button key={fp.host} className={`found-item ${f.host === fp.host ? "on" : ""}`} onClick={() => pickFound(fp)}>
-                  <b>{fp.name ?? fp.model ?? "Printer"}</b>
-                  <span>{[fp.name ? fp.model : null, fp.host].filter(Boolean).join(" · ")}</span>
-                  {fp.note && <span className="found-note">{fp.note}</span>}
-                </button>
-              ))}
+              {fresh.map((fp) => {
+                const picture = fp.model ? printerPicture(fp.model) : null;
+                return (
+                  <button key={fp.host} className={`found-item ${picture ? "with-pic" : ""} ${f.host === fp.host ? "on" : ""}`} onClick={() => pickFound(fp)}>
+                    {picture && <img src={picture} alt="" />}
+                    <span className="found-text">
+                      <b>{fp.name ?? fp.model ?? "Printer"}</b>
+                      <span>{[fp.name ? fp.model : null, fp.host].filter(Boolean).join(" · ")}</span>
+                      {fp.note && <span className="found-note">{fp.note}</span>}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           )}
           {f.driver === "bambu" && fresh.some((fp) => fp.host === f.host) && <span className="help">Now type the LAN access code from the printer's screen: Settings → Network.</span>}

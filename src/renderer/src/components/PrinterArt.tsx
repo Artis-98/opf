@@ -1,12 +1,38 @@
 import type { LiveState, PlateJob, PrinterConfig } from "../../../core/types";
 
-/** A small drawing of the printer: enclosure or open frame, AMS spools in their real colours, the part growing. */
+// OrcaSlicer's pictures of the printer models OPF lists, copied by scripts/printer-pictures.cjs and named after the
+// model: "Bambu Lab A1 mini" is assets/printers/bambu-lab-a1-mini.png.
+const PICTURES = import.meta.glob<string>("../assets/printers/*.png", { eager: true, query: "?url", import: "default" });
+
+/** The picture of a printer model, or null when OPF has none for it. */
+export function printerPicture(model: string): string | null {
+  const slug = model.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  return PICTURES[`../assets/printers/${slug}.png`] ?? null;
+}
+
+/**
+ * The printer as it looks: its model's picture with the AMS spools in their real colours, or for a model without
+ * a picture a small drawing (enclosure or open frame, spools, the part growing).
+ */
 export function PrinterArt({ printer, live, job }: { printer: PrinterConfig; live?: LiveState; job: PlateJob | null }) {
   const prog = live?.progress ?? 0;
   const running = live && ["printing", "paused", "error", "preparing"].includes(live.status);
   const objH = job && running ? Math.max(2, prog * 22) : live?.status === "finished" || (job && !running) ? 22 : 0;
   const partColor = job?.filaments[0]?.color ?? "#8E9399";
   const slots = (live?.ams?.[0]?.slots ?? []).slice(0, 4);
+  const picture = printerPicture(printer.model);
+  if (picture) {
+    return (
+      <span className="pp">
+        <img src={picture} alt="" draggable={false} />
+        {slots.length > 1 && (
+          <span className="pp-ams" aria-hidden="true">
+            {slots.map((s, i) => <i key={i} className={s.color ? "" : "empty"} style={s.color ? { background: s.color } : undefined} />)}
+          </span>
+        )}
+      </span>
+    );
+  }
   const spools = slots.length > 1 && (
     <>
       <rect x="22" y="3" width="66" height="16" rx="3" fill="#3b4045" stroke="#565c61" />

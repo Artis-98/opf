@@ -6,7 +6,7 @@ import { filamentWarning, matchFilaments } from "../../../core/filament";
 import { wrongPrinter } from "../../../core/assign";
 import { PRINT_OPTIONS, printOptions, printOptionsFor } from "../../../core/print-options";
 import type { InboxItem, PlateJob, PrinterConfig, PrinterStatus, Snapshot } from "../../../core/types";
-import { PlateThumb, PrinterArt } from "../components/PrinterArt";
+import { PlateThumb, PrinterArt, printerPicture } from "../components/PrinterArt";
 import { Icon } from "../components/icons";
 import { clock, dur, hms, shortDate } from "../format";
 
@@ -335,6 +335,7 @@ function Inspector({ id, now, onAddPlate, onEdit, onEditPlate, flash }: {
   const others = snap.data.printers.filter((x) => x.id !== id);
   const pillCls = st === "printing" ? "ok" : st === "error" ? "err" : st === "paused" || st === "finished" ? "warn" : "";
   const nextMissing = queue[0] ? matchFilaments(queue[0], live).filter((m) => !m.slot) : [];
+  const picture = printerPicture(p.model);
 
   const run = async (name: string, ...args: unknown[]) => {
     const r = await act(name, ...args);
@@ -426,6 +427,7 @@ function Inspector({ id, now, onAddPlate, onEdit, onEditPlate, flash }: {
     <>
       <div className="insp-sec">
         <div className="insp-head">
+          {picture && <img className="insp-pic" src={picture} alt="" />}
           <div style={{ minWidth: 0 }}><h2>{p.name}</h2><div className="model">{p.model}{shelf ? ` · ${shelf.name.split(" · ")[0]}, slot ${shelf.slots.indexOf(id) + 1}` : ""}</div></div>
           <span className={`pill ${pillCls}`}>{STATUS_LABEL[st]}</span>
         </div>
