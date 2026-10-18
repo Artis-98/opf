@@ -9,7 +9,8 @@ export type PrinterStatus =
   | "paused"
   | "error" // stopped by the printer and waiting for a person
   | "finished" // print done, parts still on the bed
-  | "offline";
+  | "offline"
+  | "sending"; // OPF is sending it a plate to start. Shown by OPF (displayStatus), never reported by a printer.
 
 export interface PrinterConfig {
   id: string;
@@ -91,6 +92,8 @@ export interface LiveState {
   activeSlot: string | null;
   error: string | null;
   updatedAt: number;
+  /** A plate OPF is sending to the printer to start: its name and how much has arrived (0–1, null before the first part). */
+  sending?: { job: string; progress: number | null } | null;
 }
 
 export interface JobFilament {

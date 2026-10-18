@@ -14,8 +14,8 @@ import { clock, dur } from "../format";
 import { schedule } from "./Farm";
 
 // The printers that wait for someone come first.
-const ORDER: Record<PrinterStatus, number> = { error: 0, finished: 1, paused: 2, printing: 3, preparing: 3, idle: 4, offline: 5 };
-const PILL: Partial<Record<PrinterStatus, string>> = { printing: "ok", preparing: "ok", error: "err", finished: "warn", paused: "warn" };
+const ORDER: Record<PrinterStatus, number> = { error: 0, finished: 1, paused: 2, printing: 3, preparing: 3, sending: 3, idle: 4, offline: 5 };
+const PILL: Partial<Record<PrinterStatus, string>> = { printing: "ok", preparing: "ok", sending: "ok", error: "err", finished: "warn", paused: "warn" };
 
 export function MiniView() {
   const { snap } = useFarm();
@@ -79,7 +79,15 @@ function MiniPrinter({ printer: p, status: st }: { printer: PrinterConfig; statu
   );
 
   let body: React.ReactNode;
-  if (st === "printing" || st === "preparing" || st === "paused") {
+  if (st === "sending") {
+    const sent = live?.sending?.progress ?? null;
+    body = (
+      <>
+        <div className="line">Sending {live?.sending?.job ?? "the plate"}{sent === null ? "…" : ` · ${Math.round(sent * 100)}%`}</div>
+        <div className="bar"><i style={{ width: `${((sent ?? 0) * 100).toFixed(1)}%`, background: "var(--accent)" }} /></div>
+      </>
+    );
+  } else if (st === "printing" || st === "preparing" || st === "paused") {
     const end = schedule(snap!, p.id, now)[0]?.end;
     body = (
       <>

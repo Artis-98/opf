@@ -21,7 +21,7 @@ type Filter = "all" | "printing" | "idle" | "attention";
 const NEEDS_YOU: PrinterStatus[] = ["error", "finished", "paused", "offline"];
 
 function matches(f: Filter, st: PrinterStatus) {
-  return f === "all" || (f === "printing" ? st === "printing" || st === "preparing" : f === "idle" ? st === "idle" : NEEDS_YOU.includes(st));
+  return f === "all" || (f === "printing" ? st === "printing" || st === "preparing" || st === "sending" : f === "idle" ? st === "idle" : NEEDS_YOU.includes(st));
 }
 
 export interface FarmProps {
@@ -223,7 +223,13 @@ function PrinterCard({ printer: p, now, on, faded, editing, over, dragging, onCl
 
   let time: React.ReactNode, sub: string, word = true, prog = 0;
   const jobName = cur?.name ?? live?.jobName ?? "Print";
-  if (st === "printing" || st === "paused" || st === "preparing") {
+  if (st === "sending") {
+    const sent = live?.sending?.progress ?? null;
+    prog = sent ?? 0;
+    word = sent === null;
+    time = sent === null ? "Sending…" : <>{Math.round(sent * 100)}%<small>sent</small></>;
+    sub = `${live?.sending?.job ?? "Plate"} on its way`;
+  } else if (st === "printing" || st === "paused" || st === "preparing") {
     prog = live?.progress ?? 0;
     word = false;
     time = <>{dur(live?.remainingSec)}<small>{st === "preparing" ? "heating" : "left"}</small></>;
@@ -321,6 +327,7 @@ function Inspector({ id, now, onAddPlate, onEdit, onEditPlate, flash }: {
   const [confirmStop, setConfirmStop] = useState(false);
   // Starting a plate whose filament is not loaded: asked first, then started on the closest spools.
   const [ask, setAsk] = useState<{ text: string; go: () => void } | null>(null);
+  const [starting, setStarting] = useState(false);
   const [dragQ, setDragQ] = useState<number | null>(null);
   const [overQ, setOverQ] = useState<number | null>(null);
   const p = snap.data.printers.find((x) => x.id === id)!;
@@ -341,11 +348,15 @@ function Inspector({ id, now, onAddPlate, onEdit, onEditPlate, flash }: {
     const r = await act(name, ...args);
     return r;
   };
-  /** Starts the next plate, asking first when its filament is not loaded. */
-  const startNext = (start: (anyFilament: boolean) => void) => {
+  /** Starts the next plate, asking first when its filament is not loaded. The buttons wait until it is on its way. */
+  const startNext = (start: (anyFilament: boolean) => Promise<unknown>) => {
+    const go = async (anyFilament: boolean) => {
+      setStarting(true);
+      try { await start(anyFilament); } finally { setStarting(false); }
+    };
     const warn = queue[0] ? filamentWarning(queue[0], live) : null;
-    if (warn) setAsk({ text: `${warn} on ${p.name}. Start ${queue[0].name} anyway?`, go: () => start(true) });
-    else start(false);
+    if (warn) setAsk({ text: `${warn} on ${p.name}. Start ${queue[0].name} anyway?`, go: () => void go(true) });
+    else void go(false);
   };
   const askBlock = ask && (
     <div className="confirm warn">{ask.text}
@@ -355,7 +366,16 @@ function Inspector({ id, now, onAddPlate, onEdit, onEditPlate, flash }: {
   );
 
   let liveBlock: React.ReactNode;
-  if (st === "printing" || st === "paused" || st === "preparing" || st === "error") {
+  if (st === "sending") {
+    const sent = live?.sending?.progress ?? null;
+    liveBlock = (
+      <>
+        <div className="banner neutral"><b>Sending {live?.sending?.job ?? "the plate"} to {p.name}</b>It starts as soon as the printer has all of it. A big plate takes a minute or two.</div>
+        <div className="bar" style={{ height: 6 }}><i style={{ width: `${((sent ?? 0) * 100).toFixed(1)}%`, background: "var(--accent)" }} /></div>
+        <div className="muted">{sent === null ? "Connecting to the printer…" : `${Math.round(sent * 100)}% sent`}</div>
+      </>
+    );
+  } else if (st === "printing" || st === "paused" || st === "preparing" || st === "error") {
     const prog = live?.progress ?? 0;
     const name = cur?.name ?? live?.jobName ?? "Print started on the printer";
     liveBlock = (
@@ -402,8 +422,8 @@ function Inspector({ id, now, onAddPlate, onEdit, onEditPlate, flash }: {
         {nextMissing.length > 0 && <div className="banner warn">{nextMissing.map((m) => m.problem).join(". ")}.</div>}
         {askBlock || (
           <div className="row">
-            {queue.length > 0 && <button className="btn pri" onClick={() => startNext(async (anyFilament) => { if ((await run("clearBed", id, true, { anyFilament })) !== undefined) toast(`${p.name} started ${queue[0].name}`); })}>Bed is clear, start next</button>}
-            <button className={`btn ${queue.length ? "" : "pri"}`} onClick={() => run("clearBed", id, false)}>Bed is clear{queue.length ? ", don't start" : ""}</button>
+            {queue.length > 0 && <button className="btn pri" disabled={starting} onClick={() => startNext(async (anyFilament) => { if ((await run("clearBed", id, true, { anyFilament })) !== undefined) toast(`${p.name} started ${queue[0].name}`); })}>Bed is clear, start next</button>}
+            <button className={`btn ${queue.length ? "" : "pri"}`} disabled={starting} onClick={() => run("clearBed", id, false)}>Bed is clear{queue.length ? ", don't start" : ""}</button>
           </div>
         )}
       </>
@@ -413,7 +433,7 @@ function Inspector({ id, now, onAddPlate, onEdit, onEditPlate, flash }: {
       <>
         <div className="banner neutral"><b>Idle</b>{queue.length ? `${queue.length} plate${queue.length > 1 ? "s" : ""} waiting.` : "Nothing queued. Add a plate or take one from the inbox."}</div>
         {nextMissing.length > 0 && !ask && <div className="banner warn"><b>Check the filament</b>{nextMissing.map((m) => m.problem).join(". ")}.</div>}
-        {queue.length > 0 && (askBlock || <div className="row"><button className="btn pri" onClick={() => startNext(async (anyFilament) => { if ((await run("startNext", id, { anyFilament })) !== undefined) toast(`${p.name} started ${queue[0].name}`); })}>Start {queue[0].name}</button></div>)}
+        {queue.length > 0 && (askBlock || <div className="row"><button className="btn pri" disabled={starting} onClick={() => startNext(async (anyFilament) => { if ((await run("startNext", id, { anyFilament })) !== undefined) toast(`${p.name} started ${queue[0].name}`); })}>Start {queue[0].name}</button></div>)}
       </>
     );
   } else {
