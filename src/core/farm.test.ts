@@ -2,11 +2,13 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { emptyFarm, FarmService } from "./farm";
 import { SimulatedPrinter, simulatorFor } from "./simulator";
 import type { DriverFactory, PrinterDriver } from "./driver";
-import type { FarmData, PlateJob } from "./types";
+import { displayStatus } from "./status";
+import type { FarmData, PlateJob, PrinterConfig } from "./types";
 
 const plate = (name: string, minutes = 1): Omit<PlateJob, "id" | "createdAt"> => ({
   name, ref: null, minutes, grams: 5, filaments: [], file: null, thumbnail: null, source: "estimate",
 });
+const plateJob = (name: string): PlateJob => ({ ...plate(name), id: `j-${name}`, createdAt: 0 } as PlateJob);
 
 function setup(data: FarmData = emptyFarm()) {
   const saved: FarmData[] = [];
@@ -52,6 +54,62 @@ describe("FarmService", () => {
       { bedLevelling: false, flowCalibration: true, vibrationCompensation: false, timelapse: false },
     ]);
     farm.shutdown();
+  });
+
+  it("shows a plate as sending while it goes to the printer, then as started", async () => {
+    let arrived!: () => void;
+    let report!: (fraction: number) => void;
+    const farm = new FarmService(emptyFarm(), (cfg, emit): PrinterDriver => {
+      const d = simulatorFor(cfg, emit, 60);
+      return {
+        connect: () => d.connect(), disconnect: () => d.disconnect(), pause: () => d.pause(), resume: () => d.resume(), stop: () => d.stop(),
+        start: (job, opts) => { report = opts!.onProgress!; return new Promise<void>((r) => { arrived = r; }).then(() => d.start(job)); },
+      };
+    }, { persist: () => {}, slicer: () => ({ found: false, name: null, path: null }) });
+    farm.start();
+    const a = farm.addPrinter({ name: "A", model: "m", driver: "simulator" });
+    farm.enqueue(a, plate("big", 1));
+    farm.enqueue(a, plate("after", 1));
+    const started = farm.startNext(a);
+    expect(farm.snapshot().live[a].sending).toEqual({ job: "big", progress: null });
+    expect(displayStatus(farm.snapshot().live[a], null)).toBe("sending");
+    report(0.4);
+    expect(farm.snapshot().live[a].sending).toEqual({ job: "big", progress: 0.4 });
+    await expect(farm.startNext(a)).rejects.toThrow(/still receiving big/);
+    arrived();
+    await started;
+    expect(farm.snapshot().live[a].sending).toBeNull();
+    expect(farm.snapshot().data.current[a]?.name).toBe("big");
+    expect(farm.snapshot().data.queues[a].map((j) => j.name)).toEqual(["after"]);
+    farm.shutdown();
+  });
+
+  it("keeps the plate queued and stops showing it as sending when the upload fails", async () => {
+    const farm = new FarmService(emptyFarm(), (cfg, emit): PrinterDriver => {
+      const d = simulatorFor(cfg, emit, 60);
+      return {
+        connect: () => d.connect(), disconnect: () => d.disconnect(), pause: () => d.pause(), resume: () => d.resume(), stop: () => d.stop(),
+        start: () => Promise.reject(new Error("Could not upload big to A: connection refused")),
+      };
+    }, { persist: () => {}, slicer: () => ({ found: false, name: null, path: null }) });
+    farm.start();
+    const a = farm.addPrinter({ name: "A", model: "m", driver: "simulator" });
+    farm.enqueue(a, plate("big", 1));
+    await expect(farm.startNext(a)).rejects.toThrow(/Could not upload/);
+    expect(farm.snapshot().live[a].sending).toBeNull();
+    expect(displayStatus(farm.snapshot().live[a], null)).toBe("idle");
+    expect(farm.snapshot().data.queues[a].map((j) => j.name)).toEqual(["big"]);
+    farm.shutdown();
+  });
+
+  it("takes a moment to send a plate to a simulated printer, reporting how much has gone", async () => {
+    vi.useFakeTimers();
+    const sim = new SimulatedPrinter({ id: "s", name: "S", model: "m", driver: "simulator" } as PrinterConfig, () => {}, { status: "idle" }, 1, 1);
+    const seen: number[] = [];
+    const started = sim.start(plateJob("big"), { onProgress: (f) => seen.push(f) });
+    await vi.advanceTimersByTimeAsync(1000);
+    await started;
+    expect(seen).toEqual([0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]);
   });
 
   it("swaps two printers when one is dropped on the other's slot", () => {

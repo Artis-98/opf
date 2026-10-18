@@ -377,13 +377,31 @@ export class FarmService {
     if (!q.length) throw new Error("Nothing is queued for this printer.");
     if (live && ["printing", "preparing", "paused"].includes(live.status)) throw new Error(`${p.name} is busy.`);
     if (live?.status === "offline") throw new Error(`${p.name} is offline.`);
+    if (live?.sending) throw new Error(`${p.name} is still receiving ${live.sending.job}.`);
     const job = q[0];
     if (!job.file && p.driver !== "simulator") throw new Error("Slice this plate before sending it. It only has an estimate.");
     this.checkFits(job, printerId);
-    await this.drivers.get(printerId)!.start(job, { ...opts, print: printOptions(p) });
+    // A big plate takes a while to reach the printer: the windows show it on its way.
+    this.setSending(printerId, { job: job.name, progress: null });
+    try {
+      await this.drivers.get(printerId)!.start(job, {
+        ...opts,
+        print: printOptions(p),
+        onProgress: (fraction) => this.setSending(printerId, { job: job.name, progress: Math.min(1, Math.max(0, fraction)) }),
+      });
+    } finally {
+      this.setSending(printerId, null);
+    }
     q.shift();
     this.data.current[printerId] = job;
     this.changed(true);
+  }
+
+  private setSending(printerId: string, sending: LiveState["sending"]) {
+    const live = this.live[printerId];
+    if (!live) return;
+    this.live[printerId] = { ...live, sending };
+    this.changed(false);
   }
 
   async pause(printerId: string) {
