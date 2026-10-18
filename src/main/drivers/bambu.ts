@@ -13,7 +13,7 @@
 // local network, reached by address the operator typed in.
 
 import { createHash } from "node:crypto";
-import { createReadStream } from "node:fs";
+import { createReadStream, statSync } from "node:fs";
 import { basename } from "node:path";
 import mqtt, { type MqttClient } from "mqtt";
 import { Client as FtpClient } from "basic-ftp";
@@ -113,7 +113,10 @@ export class BambuDriver implements PrinterDriver {
     const ftp = new FtpClient(30_000);
     try {
       await ftp.access({ host, port: 990, user: "bblp", password: accessCode, secure: "implicit", secureOptions: { rejectUnauthorized: false } });
+      const size = statSync(job.file).size;
+      if (opts.onProgress && size) ftp.trackProgress((info) => opts.onProgress!(info.bytes / size));
       await ftp.uploadFrom(createReadStream(job.file), remote);
+      ftp.trackProgress();
     } catch (e) {
       throw new Error(`Could not upload ${basename(job.file)} to ${this.cfg.name}: ${(e as Error).message}`);
     } finally {
