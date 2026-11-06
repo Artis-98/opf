@@ -15,7 +15,7 @@ import { unzipSync } from "fflate";
 import { isNewer, type Change } from "./updater";
 
 /** OPF's farm update key (ed25519, SPKI). Its private half is on the owner's PC only. */
-const PUBLIC_KEY = "MCowBQYDK2VwAyEA8wvhkFNDJBxjipuyiGAJ+H6vVfTu+aDyCbVgf+P7eVg=";
+const PUBLIC_KEY = "MCowBQYDK2VwAyEAQ0EBZx+0a4cmCfpHfkis4xruO7a1vEXSnNrxL1KJPJ4=";
 
 /** Where the manifest is. OPF_FARM_FEED points a copy at a test release instead. */
 export const FARM_FEED = process.env.OPF_FARM_FEED || "https://github.com/Artis-98/opf/releases/download/farm-latest/farm.json";
