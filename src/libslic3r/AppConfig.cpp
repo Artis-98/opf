@@ -37,6 +37,7 @@
 #include <boost/property_tree/ini_parser.hpp>
 #include <boost/property_tree/ptree_fwd.hpp>
 #include <boost/algorithm/string/predicate.hpp>
+#include <boost/algorithm/string/replace.hpp>
 #include <boost/format/format_fwd.hpp>
 #include <boost/log/trivial.hpp>
 #include <boost/uuid/uuid.hpp>
@@ -1032,6 +1033,21 @@ std::string AppConfig::load(bool read_only)
     if (get("opf_bed_type") != "1") {
         set("curr_bed_type", "4");
         set("opf_bed_type", "1");
+    }
+    // OPF: OPF 0.2.0 saved OrcaSlicer's teal (#26A69A), its colour for a filament without one, as each printer's
+    // filament colours; OPF's is Bambu green. Swapped once, so a copy updated from 0.2.0 does not keep a teal model.
+    if (get("opf_filament_colour") != "1") {
+        for (auto& entry : m_printer_settings) {
+            nlohmann::json& settings = entry.second;
+            for (const char* key : {"filament_colors", "filament_multi_colors"}) {
+                if (!settings.contains(key) || !settings[key].is_string())
+                    continue;
+                std::string colours = settings[key].get<std::string>();
+                boost::algorithm::ireplace_all(colours, "#26A69A", "#00AE42");
+                settings[key] = colours;
+            }
+        }
+        set("opf_filament_colour", "1");
     }
     return "";
 }

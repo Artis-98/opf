@@ -48,7 +48,8 @@ Prepare and Preview are OrcaSlicer's own and are kept close to upstream so its u
   and program icons are the shelf on a white tile, so they show on a dark taskbar. The accent colour
   is Bambu green, `#00AE42`, with its hover, pressed and light shades, in place of OrcaSlicer's
   teal; the swap was made with a script over `src/slic3r`, `resources/images` and `resources/web`,
-  so after merging OrcaSlicer, new teal can be swapped the same way. The About box keeps the credit
+  so after merging OrcaSlicer, new teal can be swapped the same way. Filament colours OPF 0.2.0 saved as
+  that teal are turned green once when the settings load (`AppConfig::load()`, marker `opf_filament_colour`). The About box keeps the credit
   to OrcaSlicer, PrusaSlicer and BambuStudio that their licence asks for.
 - **One window, no save questions**: `single_instance` is on (turned on once in `AppConfig::load()`,
   over a saved "false"; marker `opf_single_instance` = 2), and
