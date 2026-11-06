@@ -6,7 +6,7 @@
   "license": "AGPL-3.0-or-later",
   "author": "Artis Agrums <aa@iiteg.com>",
   "homepage": "https://github.com/Artis-98/opf",
-  "main": "out/main/index.js",
+  "main": "out/main/boot.js",
   "private": true,
   "scripts": {
     "postinstall": "node scripts/ensure-electron.cjs",
@@ -63,17 +63,14 @@
     ]
   },
   "dependencies": {
-    "@fontsource/barlow": "^5.3.0",
-    "@fontsource/jetbrains-mono": "^5.3.0",
     "basic-ftp": "^6.2.3",
     "busboy": "^1.6.0",
     "fflate": "^0.8.3",
-    "mqtt": "^5.16.0",
-    "react": "^19.3.0",
-    "react-dom": "^19.3.0",
-    "three": "^0.186.1"
+    "mqtt": "^5.16.0"
   },
   "devDependencies": {
+    "@fontsource/barlow": "^5.3.0",
+    "@fontsource/jetbrains-mono": "^5.3.0",
     "@types/busboy": "^1.5.5",
     "@types/node": "^26.6.5",
     "@types/react": "^19.3.0",
@@ -83,7 +80,10 @@
     "electron": "^44.7.2",
     "electron-builder": "^26.15.3",
     "electron-vite": "^5.0.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
     "resedit": "^1.7.2",
+    "three": "^0.186.1",
     "typescript": "^7.0.2",
     "vite": "^7.3.7",
     "vitest": "^5.0.4"

@@ -13,6 +13,7 @@ import { slicePlate } from "./slicer";
 import { startHost, type Host } from "./host";
 import type { UpdateHooks } from "./api";
 import { changesSinceLastRun, checkForRelease, checkForUpdate, isCheckout, restartThroughLauncher, type Change, type UpdateState } from "./updater";
+import { checkFarmUpdate, installFarmUpdate, markGood, readState } from "./farm-update";
 import { slicerExe, startMini, type Mini } from "./mini";
 import { discoverPrinters } from "./discover";
 import icon from "../../resources/icon.png?asset";
@@ -81,17 +82,22 @@ app.on("second-instance", (_e, argv) => {
   if (app.isReady() && !argv.includes("--background")) showWindow();
 });
 
+/** The farm version running: a small farm update's (boot.ts says which), otherwise the installed one. */
+const running = process.env.OPF_FARM_UPDATE || app.getVersion();
+
 /**
  * Updates. A copy running from its git folder (started by OPF.bat) pulls and restarts itself. An
- * installed copy asks GitHub for a newer release now and then, and offers its download page.
+ * installed copy asks GitHub now and then: a small farm update is downloaded and offered as a restart
+ * (farm-update.ts); a new installer is offered as its download page.
  * The window asks over IPC; the web page (in OPF Slicer, or a browser) over the local web server.
  */
-function watchForUpdates(): UpdateHooks {
+function watchForUpdates(): UpdateHooks & { cameUp(): void } {
   const root = app.getAppPath();
+  const userData = app.getPath("userData");
   let state: UpdateState | null = null;
   let whatsNew: Change[] = [];
   const fromGit = !app.isPackaged && isCheckout(root);
-  const hooks: UpdateHooks = {
+  const hooks = {
     state: () => state,
     whatsNew: () => {
       const w = whatsNew;
@@ -103,19 +109,43 @@ function watchForUpdates(): UpdateHooks {
         void shell.openExternal(state.download);
         return;
       }
+      if (state?.ready) {
+        // The same way it was started (in the background or not); boot.ts then runs the update.
+        app.relaunch({ args: process.argv.slice(1) });
+        app.exit(0);
+        return;
+      }
       if (!fromGit) return;
       // Without its window when none is open: the small OPF by the clock comes back by itself.
       restartThroughLauncher(root, !win);
       app.quit();
+    },
+    /** The farm is up: a small update that started it works, and what it changed is shown once. */
+    cameUp: () => {
+      if (!app.isPackaged) return;
+      try {
+        const changes = markGood(userData, process.env.OPF_FARM_UPDATE);
+        if (changes.length) whatsNew = changes;
+      } catch { /* counted again next start */ }
     },
   };
   ipcMain.handle("opf:updateState", hooks.state);
   ipcMain.handle("opf:whatsNew", hooks.whatsNew);
   ipcMain.handle("opf:restart", hooks.restart);
   if (!fromGit && !app.isPackaged) return hooks;
-  if (fromGit) changesSinceLastRun(root, join(app.getPath("userData"), "version.json")).then((c) => (whatsNew = c), () => {});
+  if (fromGit) changesSinceLastRun(root, join(userData, "version.json")).then((c) => (whatsNew = c), () => {});
+
+  /** Installed: a small farm update first (downloaded right away), otherwise a newer installer. */
+  const checkInstalled = async (): Promise<UpdateState | null> => {
+    const m = await checkFarmUpdate(running, __OPF_DEPS__, userData).catch(() => null);
+    if (m) {
+      if (readState(userData)?.version !== m.version) await installFarmUpdate(m, userData, running);
+      return { behind: Math.max(1, m.changes.length), changes: m.changes.length ? m.changes : [{ subject: `OPF farm ${m.version}`, body: "" }], ready: true };
+    }
+    return checkForRelease(running);
+  };
   const check = () =>
-    (fromGit ? checkForUpdate(root) : checkForRelease(app.getVersion())).then(
+    (fromGit ? checkForUpdate(root) : checkInstalled()).then(
       (s) => {
         state = s;
         if (s) broadcast("opf:updateReady", s);
@@ -213,6 +243,7 @@ app.whenReady().then(() => {
   });
 
   if (!background) createWindow();
+  updates.cameUp();
   app.on("activate", showWindow);
 });
 
