@@ -153,7 +153,8 @@ function desktopShortcut() {
 /** Starts OPF: without a window for OPF Slicer, or with its own window. */
 function start(withoutWindow) {
   require(path.join(root, "scripts", "ensure-electron.cjs")).ensureElectron();
-  const electron = require(path.join(root, "node_modules", "electron"));
+  // On Windows: OPF-Farm.exe, Electron with OPF's name and icon, so Windows says OPF.
+  const electron = require(path.join(root, "scripts", "branded-electron.cjs")).brandedElectron(require(path.join(root, "node_modules", "electron")), say);
   const env = { ...process.env };
   delete env.ELECTRON_RUN_AS_NODE;
   // OPF_ELECTRON_ARGS: extra Electron switches, for testing the launcher (e.g. a separate --user-data-dir).
