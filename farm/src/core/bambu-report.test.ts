@@ -73,6 +73,13 @@ describe("liveFromReport", () => {
     expect(s("PAUSE", 50348044)).toBe("error");
     expect(s("FINISH")).toBe("finished");
     expect(s("FAILED")).toBe("error");
+    expect(s("FAILED", 0x0300400c)).toBe("stopped"); // cancelled on the printer, in the app or from OPF
+    expect(s("FAILED", 0x0500400e)).toBe("stopped");
+    expect(s("FAILED", 0x0300800a)).toBe("error");
+  });
+
+  it("does not call a cancelled print an error", () => {
+    expect(liveFromReport({ print: { gcode_state: "FAILED", print_error: 0x0300400c } }).error).toBeNull();
   });
 
   it("does not report time left once the plate is finished", () => {

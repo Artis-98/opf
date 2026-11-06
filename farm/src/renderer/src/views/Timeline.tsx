@@ -67,7 +67,7 @@ export function TimelineView({ onPick }: { onPick: (id: string) => void }) {
                 <div className="tl-track">
                   {closed.map((c, i) => <div key={i} className="night" style={{ left: c.l, width: c.w }} />)}
                   {st === "offline" && <button className="blk off" style={{ left: 4, width: 260 }} onClick={() => onPick(p.id)}>Offline{q ? ` · ${q} plate${q > 1 ? "s" : ""} waiting` : ""}</button>}
-                  {st === "finished" && <button className="blk wait" style={{ left: Math.max(0, x(now)), width: 84 }} onClick={() => onPick(p.id)}>Clear bed</button>}
+                  {(st === "finished" || st === "stopped") && <button className="blk wait" style={{ left: Math.max(0, x(now)), width: 84 }} onClick={() => onPick(p.id)}>{st === "stopped" ? "Stopped" : "Clear bed"}</button>}
                   {st !== "offline" && slots.map((sl) => {
                     const l = Math.max(0, x(sl.start));
                     const r = Math.min(W, x(sl.end));

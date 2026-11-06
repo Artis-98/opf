@@ -96,7 +96,7 @@ export class SimulatedPrinter implements PrinterDriver {
         this.s.bed = { current: 45, target: 0 };
         this.s.activeSlot = null;
       }
-    } else if (this.s.status === "finished" || this.s.status === "idle") {
+    } else if (this.s.status === "finished" || this.s.status === "idle" || this.s.status === "stopped") {
       this.s.nozzle.current = Math.max(26, this.s.nozzle.current - 2);
       this.s.bed.current = Math.max(25, this.s.bed.current - 0.5);
     } else {
@@ -137,8 +137,10 @@ export class SimulatedPrinter implements PrinterDriver {
     this.emit({ status: "printing", error: null });
   }
 
+  /** Like a Bambu printer: it keeps calling the print stopped, with its name, until the next one starts. */
   async stop() {
-    Object.assign(this.s, { status: "idle", jobName: null, progress: 0, remainingSec: null, error: null, activeSlot: null, layer: null, totalLayers: null });
+    if (this.s.status !== "printing" && this.s.status !== "preparing" && this.s.status !== "paused" && this.s.status !== "error") return;
+    Object.assign(this.s, { status: "stopped", remainingSec: null, error: null, activeSlot: null });
     this.s.nozzle.target = 0;
     this.s.bed.target = 0;
     this.emit({ ...this.s });
