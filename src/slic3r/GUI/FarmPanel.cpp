@@ -4,7 +4,10 @@
 #include <utility>
 
 #include <boost/log/trivial.hpp>
+#include <wx/activityindicator.h>
+#include <wx/gdicmn.h>
 #include <wx/sizer.h>
+#include <wx/stattext.h>
 #include <wx/utils.h>
 #include <wx/webview.h>
 
@@ -12,44 +15,46 @@
 #include "GUI_App.hpp"
 #include "I18N.hpp"
 #include "OpfFarm.hpp"
-#include "format.hpp"
 #include "Widgets/WebView.hpp"
 
 namespace Slic3r {
 namespace GUI {
 
-static wxString html_escape(const wxString& s)
-{
-    wxString out;
-    for (wxUniChar c : s) {
-        switch (c.GetValue()) {
-        case '&': out += "&amp;"; break;
-        case '<': out += "&lt;"; break;
-        case '>': out += "&gt;"; break;
-        case '"': out += "&quot;"; break;
-        default: out += c;
-        }
-    }
-    return out;
-}
-
 FarmPanel::FarmPanel(wxWindow* parent, std::string view)
-    : wxPanel(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize), m_view(std::move(view))
+    : wxPanel(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize), m_view(std::move(view)), m_retry(this)
 {
     auto* sizer = new wxBoxSizer(wxVERTICAL);
     m_browser   = WebView::CreateWebView(this, "");
+    m_loading = new wxPanel(this);
+    auto* loading_sizer = new wxBoxSizer(wxVERTICAL);
+    auto* spinner = new wxActivityIndicator(m_loading, wxID_ANY, wxDefaultPosition, wxSize(64, 64));
+    m_loading_text = new wxStaticText(m_loading, wxID_ANY, _L("Starting OPF..."));
+    loading_sizer->AddStretchSpacer();
+    loading_sizer->Add(spinner, 0, wxALIGN_CENTER | wxBOTTOM, 20);
+    loading_sizer->Add(m_loading_text, 0, wxALIGN_CENTER | wxALL, 20);
+    loading_sizer->AddStretchSpacer();
+    m_loading->SetSizerAndFit(loading_sizer);
+    spinner->Start();
+    sizer->Add(m_loading, wxSizerFlags().Expand().Proportion(1));
+    m_browser->Hide();
+    m_browser->Bind(wxEVT_WEBVIEW_LOADED, &FarmPanel::on_loaded, this);
+    Bind(wxEVT_TIMER, [this](wxTimerEvent&) {
+        m_failed = false;
+        WebView::LoadUrl(m_browser, OpfFarm::page_url(m_view));
+    }, m_retry.GetId());
     m_browser->Bind(wxEVT_WEBVIEW_ERROR, &FarmPanel::on_error, this);
     m_browser->Bind(wxEVT_WEBVIEW_NAVIGATING, &FarmPanel::on_navigating, this);
     m_browser->Bind(wxEVT_WEBVIEW_NEWWINDOW, &FarmPanel::on_new_window, this);
     m_browser->Bind(wxEVT_WEBVIEW_SCRIPT_MESSAGE_RECEIVED, &FarmPanel::on_script_message, this);
     sizer->Add(m_browser, wxSizerFlags().Expand().Proportion(1));
-    SetSizer(sizer);
+    SetSizerAndFit(sizer);
     if (m_view == "farm")
         OpfFarm::get().record_slicer();
 }
 
 FarmPanel::~FarmPanel()
 {
+    m_retry.Stop();
     SetEvtHandlerEnabled(false);
     if (m_browser) {
         m_browser->Destroy();
@@ -62,6 +67,7 @@ bool FarmPanel::Show(bool show)
     // Load on first show: the farm page keeps itself up to date after that.
     if (show && !m_loaded) {
         m_loaded = true;
+        show_not_running(true);
         WebView::LoadUrl(m_browser, OpfFarm::page_url(m_view));
     }
     return wxPanel::Show(show);
@@ -69,6 +75,9 @@ bool FarmPanel::Show(bool show)
 
 void FarmPanel::reload()
 {
+    m_retry.Stop();
+    m_failed = false;
+    show_not_running(true);
     WebView::LoadUrl(m_browser, OpfFarm::page_url(m_view));
 }
 
@@ -82,9 +91,14 @@ void FarmPanel::on_error(wxWebViewEvent& evt)
     if (evt.GetInt() == wxWEBVIEW_NAV_ERR_USER_CANCELLED)
         return;
     BOOST_LOG_TRIVIAL(info) << "Farm tab: could not load " << into_u8(evt.GetURL()) << ": " << into_u8(evt.GetString());
+    m_failed = true;
+    // Keep browser-generated connection errors hidden behind the native loading view.
+    m_browser->Hide();
+    m_loading->Show();
+    Layout();
     // Start OPF when it is set up on this computer, then keep trying until it answers.
     const bool starting = OpfFarm::get().start_service();
-    // Not from inside the browser's own event: replace the page once it has finished reporting.
+    // Update the native loading view after the browser has finished reporting.
     CallAfter([this, starting] { show_not_running(starting); });
 }
 
@@ -113,32 +127,27 @@ void FarmPanel::on_new_window(wxWebViewEvent& evt)
     evt.Veto();
 }
 
-// Shown while the OPF farm service is not answering. It retries on its own, so the farm appears as
-// soon as OPF is up.
+void FarmPanel::on_loaded(wxWebViewEvent& evt)
+{
+    if (m_failed || !evt.GetURL().StartsWith(OpfFarm::farm_url()))
+        return;
+    m_retry.Stop();
+    m_loading->Hide();
+    m_browser->Show();
+    Layout();
+}
+
+// The browser loads and retries behind this view, so its connection-error page never flashes.
 void FarmPanel::show_not_running(bool starting)
 {
-    const bool     dark  = wxGetApp().dark_mode();
-    const wxString url   = OpfFarm::page_url(m_view);
-    const wxString title = html_escape(starting ? _L("Starting OPF...") : _L("OPF is not running"));
-    const wxString body  = html_escape(starting ? _L("OPF checks for a new version and starts. Your printers appear here in a moment.") :
-                                                  _L("This tab could not find OPF on this computer to start it. Open OPF once from its desktop "
-                                                     "icon; after that this tab starts it by itself."));
-    const wxString retry = html_escape(_L("Try again"));
-    // TRN: %1% is a web address such as http://127.0.0.1:7878/
-    const wxString where = html_escape(format_wxstr(_L("Looking for OPF at %1%"), OpfFarm::farm_url()));
-
-    const wxString html = wxString::Format(
-        "<!doctype html><html><head><meta charset='utf-8'><style>"
-        "body{margin:0;height:100vh;display:grid;place-items:center;font-family:'Segoe UI',system-ui,sans-serif;"
-        "background:%s;color:%s}"
-        "main{max-width:460px;text-align:center;padding:24px}h1{font-size:20px;margin:0 0 10px}"
-        "p{line-height:1.5;margin:0 0 16px;color:%s}small{color:%s}"
-        "a{display:inline-block;padding:8px 16px;border-radius:7px;background:#00AE42;color:#fff;text-decoration:none;font-weight:600}"
-        "</style></head><body><main><h1>%s</h1><p>%s</p><p><a href='%s'>%s</a></p><small>%s</small></main>"
-        "<script>setTimeout(function(){location.href='%s';},%d);</script></body></html>",
-        dark ? "#2d2d31" : "#ffffff", dark ? "#efeff0" : "#262e30", dark ? "#b8b8bc" : "#5c6466", dark ? "#8a8a8f" : "#8a9194",
-        title, body, html_escape(url), retry, where, html_escape(url), starting ? 3000 : 5000);
-    m_browser->SetPage(html, "");
+    m_browser->Hide();
+    m_loading->Show();
+    m_loading_text->SetLabel(starting ? _L("Starting OPF...") :
+        _L("OPF could not start. Open OPF from its desktop icon. This page will reconnect automatically."));
+    m_loading->Layout();
+    Layout();
+    if (m_failed)
+        m_retry.StartOnce(3000);
 }
 
 } // namespace GUI

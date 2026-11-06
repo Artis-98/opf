@@ -106,17 +106,21 @@ function httpBridge(): OpfApi {
     },
     whatsNew: () => get<Change[]>("whats-new", []),
     restart: async () => {
+      const before = await get<UpdateInfo | null>("update", null);
       try {
         await fetch(api("restart"), { method: "POST" });
       } catch { /* already going */ }
+      if (before?.download) return;
       // OPF closes, updates and starts again. Load the new page once it answers.
       let down = false, tries = 0;
       const t = setInterval(async () => {
         const up = await fetch(api("snapshot")).then((r) => r.ok, () => false);
         if (!up) down = true;
-        if ((up && down) || ++tries > 150) {
+        const current = up ? await get<UpdateInfo | null>("update", null) : null;
+        const restarted = !!before?.runtimeId && !!current?.runtimeId && current.runtimeId !== before.runtimeId;
+        if ((up && down) || restarted || ++tries > 150) {
           clearInterval(t);
-          if (up && down) location.reload();
+          location.reload();
         }
       }, 2000);
     },

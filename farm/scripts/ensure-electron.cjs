@@ -13,7 +13,7 @@ function ensureElectron() {
   if (!fs.existsSync(dir)) return;
   if (fs.existsSync(path.join(dir, "path.txt"))) return;
   console.log("Downloading Electron (about 100 MB, once)…");
-  execFileSync(process.execPath, [path.join(dir, "install.js")], { stdio: "inherit", cwd: dir });
+  execFileSync(process.execPath, [path.join(dir, "install.js")], { stdio: "inherit", cwd: dir, windowsHide: true });
 }
 
 module.exports = { ensureElectron };

@@ -5,9 +5,11 @@
 
 #include <wx/panel.h>
 #include <wx/string.h>
+#include <wx/timer.h>
 
 class wxWebView;
 class wxWebViewEvent;
+class wxStaticText;
 
 namespace Slic3r {
 namespace GUI {
@@ -28,6 +30,7 @@ public:
 
 private:
     void on_error(wxWebViewEvent& evt);
+    void on_loaded(wxWebViewEvent& evt);
     void on_navigating(wxWebViewEvent& evt);
     void on_new_window(wxWebViewEvent& evt);
     void on_script_message(wxWebViewEvent& evt);
@@ -35,6 +38,10 @@ private:
 
     std::string m_view;
     wxWebView*  m_browser{nullptr};
+    wxPanel*    m_loading{nullptr};
+    wxStaticText* m_loading_text{nullptr};
+    wxTimer     m_retry;
+    bool        m_failed{false};
     bool        m_loaded{false};
 };
 

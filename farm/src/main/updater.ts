@@ -24,6 +24,10 @@ export interface UpdateState {
   download?: string;
   /** An installed copy has downloaded a small farm update (farm-update.ts): Restart runs it. */
   ready?: boolean;
+  downloading?: boolean;
+  runningVersion?: string;
+  installedVersion?: string;
+  runtimeId?: string;
 }
 
 /** Where the installer is offered. */
@@ -123,7 +127,7 @@ export function restartThroughLauncher(root: string, background = false) {
     cwd: root,
     detached: true,
     stdio: "ignore",
-    windowsHide: background,
+    windowsHide: true,
   });
   child.unref();
 }

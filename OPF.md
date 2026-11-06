@@ -12,7 +12,9 @@ Prepare and Preview are OrcaSlicer's own and are kept close to upstream so its u
 - **Farm and Timeline** (`src/slic3r/GUI/FarmPanel.*`) show the OPF farm service's web page,
   `http://127.0.0.1:7878/` (or the `opf_farm_url` app config value), with `?embed=farm` or
   `?embed=timeline` so the page shows that one view. When OPF is not answering, the tab starts it
-  in the background through the launcher whose location OPF writes to `launcher.json` in its
+  behind a native loading view with a spinner; connection-error pages stay hidden while it retries.
+  Installed copies prefer their bundled farm over a saved development launcher. Development copies start
+  it in the background through the launcher whose location OPF writes to `launcher.json` in its
   settings folder (`%APPDATA%\OPF` on Windows), or, before OPF has written it, the launcher in
   `Documents\opf` run with `node` from the PATH. It says so and keeps retrying.
 - **One program**: the slicer writes its own location to `slicer.json` in OPF's settings folder, and

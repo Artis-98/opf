@@ -718,21 +718,8 @@ bool OpfFarm::start_service()
     const auto now = std::chrono::steady_clock::now();
     if (m_started_at != std::chrono::steady_clock::time_point{} && now - m_started_at < std::chrono::minutes(2))
         return true;
-    // Written by OPF each time it starts: the Node.js its launcher runs with and the launcher script.
-    std::string node, script;
-    try {
-        boost::filesystem::ifstream file(opf_data_dir() / "launcher.json");
-        if (file) {
-            const json launcher = json::parse(file);
-            node                = launcher.value("node", "");
-            script              = launcher.value("script", "");
-        }
-    } catch (const std::exception&) {
-        node.clear();
-        script.clear();
-    }
     // Installed with the slicer: the farm program in the "farm" folder next to it.
-    if (node.empty() || script.empty()) {
+    {
         const fs::path farm = into_path(wxStandardPaths::Get().GetExecutablePath()).parent_path() / "farm" / OPF_FARM_EXE;
         boost::system::error_code ec;
         if (fs::exists(farm, ec)) {
@@ -745,6 +732,19 @@ bool OpfFarm::start_service()
             m_started_at = now;
             return true;
         }
+    }
+    // Written by OPF each time it starts: the Node.js its launcher runs with and the launcher script.
+    std::string node, script;
+    try {
+        boost::filesystem::ifstream file(opf_data_dir() / "launcher.json");
+        if (file) {
+            const json launcher = json::parse(file);
+            node                = launcher.value("node", "");
+            script              = launcher.value("script", "");
+        }
+    } catch (const std::exception&) {
+        node.clear();
+        script.clear();
     }
     // Not written yet (OPF has not run since it was updated): OPF where it is usually kept, the "opf"
     // folder in Documents, and Node.js from the PATH.
