@@ -20,8 +20,10 @@ export interface UpdateState {
   /** Commits on GitHub that this copy does not have yet. */
   behind: number;
   changes: Change[];
-  /** An installed copy cannot update itself: the page to download the new version from. */
+  /** A new installer: the page to download it from. */
   download?: string;
+  /** An installed copy has downloaded a small farm update (farm-update.ts): Restart runs it. */
+  ready?: boolean;
 }
 
 /** Where the installer is offered. */

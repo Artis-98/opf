@@ -46,9 +46,27 @@ Windows build (the repository root) runs `npm run pack:win` in farm/ (electron-b
 and installs `release/win-unpacked` as `farm\` next to `OPF.exe`; the farm program is
 `farm\OPF-Farm.exe`. When the Farm tab finds no farm it starts that one with `--background`, unless
 `launcher.json` points at a git copy (the owner's PC). An installed farm (`app.isPackaged`) does not
-pull from git: it asks GitHub for the latest release of Artis-98/opf every few hours and offers the
-download page (`DOWNLOAD_PAGE` in `src/main/updater.ts`: opf.iiteg.com, the site in `site/`). Its settings folder
-is the same `%APPDATA%\OPF`. Keep `package.json`'s `version` in step with the release tag.
+pull from git. Every few hours it asks GitHub for a small farm update first, then for a newer installer
+(the download page, `DOWNLOAD_PAGE` in `src/main/updater.ts`: opf.iiteg.com, the site in `site/`). Its settings
+folder is the same `%APPDATA%\OPF`. Keep `package.json`'s `version` in step with the release tag.
+
+### Small farm updates (from 0.2.2)
+
+Farm-only changes reach installed copies without an installer (`src/main/farm-update.ts`, `src/main/boot.ts`):
+
+- `node scripts/publish-farm-update.cjs` (on the owner's PC, after bumping `version` in package.json) builds the
+  farm, zips `out/`, `resources/` and package.json, signs the manifest `farm.json` with the key in
+  `%APPDATA%\IITEG\OPF\farm-update-key.pem` (on that PC only; the public half is in farm-update.ts) and uploads
+  both to the GitHub prerelease `farm-latest`, then tags `farm-v<version>`. `--dry` builds and signs only.
+- An installed farm with the same runtime packages (`scripts/deps-fingerprint.cjs`: the `dependencies`, which is
+  why window-only libraries such as React and three.js are devDependencies) downloads it, checks hash and
+  signature, unpacks it into `%APPDATA%\OPF\farm-update\<version>\` and offers Update ready, Restart.
+- `package.json` "main" is `out/main/boot.js`: in an installed copy it starts the newest unpacked update with the
+  installer's packages (NODE_PATH), counts the tries, and goes back to the installed farm if an update did not
+  come up twice. A newer installer always wins. A change to `dependencies` or to the slicer needs the installer.
+- Test without GitHub: `--dry`, serve `release/farm-update/` on localhost, and start the packaged
+  `release/win-unpacked/OPF-Farm.exe` with `OPF_FARM_FEED=http://127.0.0.1:<port>/farm.json` and its own
+  `--user-data-dir` (put `{"chosen":true}` in its start-with-windows.json so it adds no Windows start-up entry).
 
 ## OPF Slicer (the rest of this repository)
 
