@@ -45,6 +45,12 @@ function tray(t: Json, unit: number, slot: number): FilamentSlot {
   };
 }
 
+/**
+ * The print_error numbers a Bambu printer reports for a print someone cancelled (0300_400C, 0500_400E),
+ * from its screen, the Bambu app or OPF. It then says FAILED until the next print.
+ */
+const CANCELLED = [0x0300400c, 0x0500400e];
+
 export function statusOf(p: Json): PrinterStatus {
   const state = String(p.gcode_state ?? "").toUpperCase();
   const err = num(p.print_error) ?? 0;
@@ -54,7 +60,7 @@ export function statusOf(p: Json): PrinterStatus {
     case "SLICING": return "preparing";
     case "PAUSE": return err ? "error" : "paused";
     case "FINISH": return "finished";
-    case "FAILED": return "error";
+    case "FAILED": return CANCELLED.includes(err >>> 0) ? "stopped" : "error";
     case "IDLE":
     case "": return "idle";
     default: return "idle";
@@ -65,6 +71,7 @@ export function statusOf(p: Json): PrinterStatus {
 export function errorText(p: Json): string | null {
   const err = num(p.print_error) ?? 0;
   if (!err) return statusOf(p) === "error" ? "The print failed. See the printer's screen." : null;
+  if (statusOf(p) === "stopped") return null;
   const hex = (err >>> 0).toString(16).toUpperCase().padStart(8, "0");
   return `Printer error ${hex.slice(0, 4)}_${hex.slice(4)}. See the printer's screen or the Bambu Lab wiki for this code.`;
 }

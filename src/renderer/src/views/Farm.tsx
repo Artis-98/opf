@@ -18,7 +18,7 @@ export function schedule(snap: Snapshot, id: string, now: Date): Slot[] {
 }
 
 type Filter = "all" | "printing" | "idle" | "attention";
-const NEEDS_YOU: PrinterStatus[] = ["error", "finished", "paused", "offline"];
+const NEEDS_YOU: PrinterStatus[] = ["error", "finished", "paused", "stopped", "offline"];
 
 function matches(f: Filter, st: PrinterStatus) {
   return f === "all" || (f === "printing" ? st === "printing" || st === "preparing" || st === "sending" : f === "idle" ? st === "idle" : NEEDS_YOU.includes(st));
@@ -238,6 +238,10 @@ function PrinterCard({ printer: p, now, on, faded, editing, over, dragging, onCl
     prog = live?.progress ?? 0;
     time = live?.error?.split(".")[0] ?? "Error";
     sub = `${jobName} · stopped at ${Math.round(prog * 100)}%`;
+  } else if (st === "stopped") {
+    prog = live?.progress ?? 0;
+    time = cur?.stopped === "ask" || !cur ? "Stopped" : "Clear the bed";
+    sub = cur?.stopped === "ask" ? `${jobName} · print again or cancel` : cur?.stopped === "again" ? `${jobName} prints again next` : `${jobName} stopped`;
   } else if (st === "finished") {
     prog = 1;
     time = "Clear the bed";
@@ -340,7 +344,7 @@ function Inspector({ id, now, onAddPlate, onEdit, onEditPlate, flash }: {
   const shelf = snap.data.shelves.find((s) => s.slots.includes(id));
   const total = queue.reduce((a, j) => a + j.minutes, 0);
   const others = snap.data.printers.filter((x) => x.id !== id);
-  const pillCls = st === "printing" ? "ok" : st === "error" ? "err" : st === "paused" || st === "finished" ? "warn" : "";
+  const pillCls = st === "printing" || st === "sending" ? "ok" : st === "error" ? "err" : st === "paused" || st === "finished" || st === "stopped" ? "warn" : "";
   const nextMissing = queue[0] ? matchFilaments(queue[0], live).filter((m) => !m.slot) : [];
   const picture = printerPicture(p.model);
 
@@ -349,13 +353,13 @@ function Inspector({ id, now, onAddPlate, onEdit, onEditPlate, flash }: {
     return r;
   };
   /** Starts the next plate, asking first when its filament is not loaded. The buttons wait until it is on its way. */
-  const startNext = (start: (anyFilament: boolean) => Promise<unknown>) => {
+  const startNext = (start: (anyFilament: boolean) => Promise<unknown>, next: PlateJob | undefined = queue[0]) => {
     const go = async (anyFilament: boolean) => {
       setStarting(true);
       try { await start(anyFilament); } finally { setStarting(false); }
     };
-    const warn = queue[0] ? filamentWarning(queue[0], live) : null;
-    if (warn) setAsk({ text: `${warn} on ${p.name}. Start ${queue[0].name} anyway?`, go: () => void go(true) });
+    const warn = next ? filamentWarning(next, live) : null;
+    if (warn) setAsk({ text: `${warn} on ${p.name}. Start ${next!.name} anyway?`, go: () => void go(true) });
     else void go(false);
   };
   const askBlock = ask && (
@@ -414,16 +418,31 @@ function Inspector({ id, now, onAddPlate, onEdit, onEditPlate, flash }: {
         )}
       </>
     );
-  } else if (st === "finished") {
+  } else if (st === "stopped" && cur?.stopped === "ask") {
     liveBlock = (
       <>
-        <div className="banner warn"><b>{cur?.name ?? live?.jobName ?? "The print"} is finished</b>Take the parts off and confirm the bed is clear.{queue[0] ? ` Then ${queue[0].name} starts.` : ""}</div>
+        <div className="banner warn"><b>{cur.name} was stopped</b>Print it again from the start, or cancel it. Then clear the bed.</div>
+        <div className="cur"><PlateThumb job={cur} /><div><div className="cur-name">{cur.name}</div><div className="cur-meta">{cur.ref && <><span className="ref">{cur.ref}</span> · </>}stopped at {Math.round((live?.progress ?? 0) * 100)}%</div></div></div>
+        <div className="row">
+          <button className="btn pri" onClick={() => run("afterStop", id, true)}>Print it again</button>
+          <button className="btn" onClick={() => run("afterStop", id, false)}>Cancel it</button>
+        </div>
+      </>
+    );
+  } else if (st === "finished" || st === "stopped") {
+    // Finished, or stopped and decided: the parts come off first. A plate printed again goes first.
+    const again = cur?.stopped === "again" ? cur : undefined;
+    const next = again ?? queue[0];
+    const title = cur?.stopped || st === "stopped" ? `${cur?.name ?? live?.jobName ?? "The print"} was stopped` : `${cur?.name ?? live?.jobName ?? "The print"} is finished`;
+    liveBlock = (
+      <>
+        <div className="banner warn"><b>{title}</b>Take the parts off and confirm the bed is clear.{again ? ` Then ${again.name} prints again.` : next ? ` Then ${next.name} starts.` : ""}</div>
         {cur && <div className="cur"><PlateThumb job={cur} /><div><div className="cur-name">{cur.name}</div><div className="cur-meta">{cur.ref && <><span className="ref">{cur.ref}</span> · </>}{cur.grams} g</div></div></div>}
-        {nextMissing.length > 0 && <div className="banner warn">{nextMissing.map((m) => m.problem).join(". ")}.</div>}
+        {nextMissing.length > 0 && !again && <div className="banner warn">{nextMissing.map((m) => m.problem).join(". ")}.</div>}
         {askBlock || (
           <div className="row">
-            {queue.length > 0 && <button className="btn pri" disabled={starting} onClick={() => startNext(async (anyFilament) => { if ((await run("clearBed", id, true, { anyFilament })) !== undefined) toast(`${p.name} started ${queue[0].name}`); })}>Bed is clear, start next</button>}
-            <button className={`btn ${queue.length ? "" : "pri"}`} disabled={starting} onClick={() => run("clearBed", id, false)}>Bed is clear{queue.length ? ", don't start" : ""}</button>
+            {next && <button className="btn pri" disabled={starting} onClick={() => startNext(async (anyFilament) => { if ((await run("clearBed", id, true, { anyFilament })) !== undefined) toast(`${p.name} started ${next.name}`); }, next)}>{again ? "Bed is clear, print it again" : "Bed is clear, start next"}</button>}
+            <button className={`btn ${next ? "" : "pri"}`} disabled={starting} onClick={() => run("clearBed", id, false)}>Bed is clear{next ? ", don't start" : ""}</button>
           </div>
         )}
       </>

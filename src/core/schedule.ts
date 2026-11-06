@@ -88,7 +88,7 @@ export function schedulePrinter(
   let t = now;
 
   const running = live && (live.status === "printing" || live.status === "paused" || live.status === "preparing" || live.status === "error");
-  if (current && running) {
+  if (current && running && !current.stopped) {
     const remainingSec = live.remainingSec ?? Math.round(current.minutes * 60 * (1 - (live.progress ?? 0)));
     const total = current.minutes * 60;
     const end = new Date(now.getTime() + remainingSec * 1000);

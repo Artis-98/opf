@@ -10,6 +10,7 @@ export type PrinterStatus =
   | "error" // stopped by the printer and waiting for a person
   | "finished" // print done, parts still on the bed
   | "offline"
+  | "stopped" // the print was stopped, from OPF or at the printer; its parts may still be on the bed
   | "sending"; // OPF is sending it a plate to start. Shown by OPF (displayStatus), never reported by a printer.
 
 export interface PrinterConfig {
@@ -126,6 +127,11 @@ export interface PlateJob {
   /** Where the time and grams came from. An estimate is replaced when the plate is sliced. */
   source: "slicer" | "estimate" | "api";
   createdAt: number;
+  /**
+   * Only on the plate a printer was printing: it was stopped. "ask" until someone chooses, then "again"
+   * (it goes back to the front of the queue when the bed is cleared) or "cancel".
+   */
+  stopped?: "ask" | "again" | "cancel";
 }
 
 export interface Shelf {
