@@ -161,6 +161,30 @@ describe("FarmService", () => {
     farm.shutdown();
   });
 
+  it.each(["printing", "preparing"] as const)("clears a stale stopped decision when the printer confirms %s", (status) => {
+    let emitFn!: (patch: Partial<LiveState>) => void;
+    const data = emptyFarm();
+    const cfg = { id: "a", name: "A", model: "m", driver: "simulator" } as PrinterConfig;
+    data.printers.push(cfg);
+    data.current.a = { ...plateJob("next"), stopped: "ask" };
+    const saved: FarmData[] = [];
+    const farm = new FarmService(data, (_cfg, emit): PrinterDriver => {
+      emitFn = emit;
+      return { connect() {}, disconnect() {}, async start() {}, async stop() {}, async pause() {}, async resume() {} };
+    }, { persist: (d) => saved.push(structuredClone(d)), slicer: () => ({ found: false, name: null, path: null }) });
+    farm.start();
+    emitFn({ status: "stopped" });
+    expect(farm.snapshot().data.current.a?.stopped).toBe("ask");
+    emitFn({ status });
+    const snap = farm.snapshot();
+    expect(snap.data.current.a?.stopped).toBeUndefined();
+    expect(snap.data.current.a?.id).toBe("j-next");
+    expect(displayStatus(snap.live.a, snap.data.current.a)).toBe(status);
+    expect(saved.at(-1)?.current.a?.stopped).toBeUndefined();
+    expect(snap.data.history).toEqual([]);
+    farm.shutdown();
+  });
+
   it("notices a print stopped on the printer itself and asks too", async () => {
     let emitFn!: (patch: Partial<LiveState>) => void;
     const farm = new FarmService(emptyFarm(), (cfg, emit): PrinterDriver => {

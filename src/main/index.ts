@@ -97,14 +97,22 @@ function watchForUpdates(): UpdateHooks & { cameUp(): void } {
   let state: UpdateState | null = null;
   let whatsNew: Change[] = [];
   const fromGit = !app.isPackaged && isCheckout(root);
+  const runtimeId = `${process.pid}-${Date.now()}`;
+  const info = (): UpdateState => ({ behind: 0, changes: [], ...state,
+    runningVersion: running, installedVersion: app.getVersion(), runtimeId });
+  const publish = (next: UpdateState | null) => {
+    state = next;
+    broadcast("opf:updateReady", info());
+  };
   const hooks = {
-    state: () => state,
+    state: info,
     whatsNew: () => {
       const w = whatsNew;
       whatsNew = [];
       return w;
     },
     restart: () => {
+      if (state?.downloading) return;
       if (state?.download) {
         void shell.openExternal(state.download);
         return;
@@ -112,7 +120,7 @@ function watchForUpdates(): UpdateHooks & { cameUp(): void } {
       if (state?.ready) {
         // The same way it was started (in the background or not); boot.ts then runs the update.
         app.relaunch({ args: process.argv.slice(1) });
-        app.exit(0);
+        app.quit();
         return;
       }
       if (!fromGit) return;
@@ -139,16 +147,22 @@ function watchForUpdates(): UpdateHooks & { cameUp(): void } {
   const checkInstalled = async (): Promise<UpdateState | null> => {
     const m = await checkFarmUpdate(running, __OPF_DEPS__, userData).catch(() => null);
     if (m) {
-      if (readState(userData)?.version !== m.version) await installFarmUpdate(m, userData, running);
-      return { behind: Math.max(1, m.changes.length), changes: m.changes.length ? m.changes : [{ subject: `OPF farm ${m.version}`, body: "" }], ready: true };
+      const update = { behind: Math.max(1, m.changes.length), changes: m.changes.length ? m.changes : [{ subject: `OPF farm ${m.version}`, body: "" }] };
+      publish({ ...update, downloading: true });
+      try {
+        if (readState(userData)?.version !== m.version) await installFarmUpdate(m, userData, running);
+      } catch (e) {
+        publish(null);
+        throw e;
+      }
+      return { ...update, ready: true };
     }
-    return checkForRelease(running);
+    return checkForRelease(app.getVersion());
   };
   const check = () =>
     (fromGit ? checkForUpdate(root) : checkInstalled()).then(
       (s) => {
-        state = s;
-        if (s) broadcast("opf:updateReady", s);
+        publish(s);
       },
       () => { /* offline: try again later */ },
     );

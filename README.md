@@ -89,6 +89,14 @@ Running it from this repository instead, always on the newest `main`:
    bar when there is something new. After the restart, **What's new** lists
    the changes.
 
+Installed copies download compatible farm updates in the background. The update
+button shows a spinner while downloading, then **Update ready · Restart**.
+The farm version in the top bar identifies the code running; the slicer's About
+window identifies the installed slicer version. A farm-only update does not
+replace the native slicer. Updates that require a new installer link to its
+download page. Git launchers and their child processes run without console
+windows when started from OPF or the Windows desktop shortcut.
+
 macOS and Linux: run `./OPF.sh` the same way.
 
 To try things without printing, open **Settings → Test printers** and add a

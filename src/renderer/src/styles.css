@@ -351,6 +351,13 @@ button.slot-empty:hover { border-color: var(--grey); color: var(--fg-2); }
 /* ---------- updates ---------- */
 .chip.update { background: var(--accent); color: var(--accent-ink); font-weight: 600; cursor: pointer; }
 .chip.update:hover { filter: brightness(1.08); }
+.chip.update:disabled { cursor: wait; }
+.opf-spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: opf-spin 0.9s linear infinite; flex-shrink: 0; }
+.opf-spinner.large { width: 56px; height: 56px; border-width: 4px; color: var(--accent); margin: 0 auto 16px; }
+.opf-restarting { position: fixed; inset: 0; z-index: 10000; background: var(--bg); display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+.opf-restarting h2 { margin: 0 0 12px; }
+.opf-restarting p { color: var(--fg-2); }
+@keyframes opf-spin { to { transform: rotate(360deg); } }
 .changes { margin: 0; padding: 0; list-style: none; display: grid; gap: 10px; }
 .changes li { display: grid; gap: 3px; padding: 10px 12px; border-radius: 9px; background: var(--panel-2); }
 .changes li span { color: var(--fg-2); font-size: 13px; line-height: 1.45; }

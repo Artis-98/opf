@@ -121,6 +121,13 @@ export class FarmService {
     }
     // The plate was stopped at the printer (or the printer dropped it): ask whether it prints again.
     const job = this.data.current[id];
+    // A start command returns before the printer reports its new print. Old stopped reports can
+    // arrive in that gap; once the printer confirms it is running, discard that stale decision.
+    if (job?.stopped && (next.status === "printing" || next.status === "preparing")) {
+      const { stopped, ...plate } = job;
+      this.data.current[id] = plate;
+      persist = true;
+    }
     if (job && !job.stopped) {
       const wasRunning = ["printing", "preparing", "paused", "error"].includes(prev.status);
       if (next.status === "stopped" || (wasRunning && next.status === "idle" && (prev.progress ?? 0) < 0.99)) {

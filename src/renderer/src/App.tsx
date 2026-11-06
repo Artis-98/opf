@@ -41,7 +41,7 @@ export default function App() {
 
 function Loaded() {
   const ctx = useFarmMaybe();
-  if (!ctx?.snap) return <div className="welcome"><p>Starting OPF…</p></div>;
+  if (!ctx?.snap) return <div className="welcome" role="status"><span className="opf-spinner large" /><h2>Starting OPF…</h2><p>Your farm will appear in a moment.</p></div>;
   return mini ? <MiniView /> : <Shell />;
 }
 
@@ -57,6 +57,7 @@ function Shell() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [theme, setTheme] = useState(readTheme);
   const [update, setUpdate] = useState<UpdateInfo | null>(null);
+  const [restarting, setRestarting] = useState(false);
   const [whatsNew, setWhatsNew] = useState<Change[]>([]);
 
   useEffect(() => {
@@ -183,6 +184,7 @@ function Shell() {
 
   return (
     <div className={`app ${embedded ? "embedded" : ""}`}>
+      {restarting && <div className="opf-restarting" role="status"><span className="opf-spinner large" /><h2>Restarting OPF…</h2><p>Your farm will reconnect automatically.</p></div>}
       <header className={`topbar ${embedded ? "embedded" : ""}`}>
         {!embedded && (
           <>
@@ -193,12 +195,14 @@ function Shell() {
           </>
         )}
         <div className="summary">
-          {update && (
+          {update && update.behind > 0 && (
             <button className="chip update" title={update.changes.map((c) => `• ${c.subject}`).join("\n")}
-              onClick={() => { if (!update.download) toast("Updating. OPF opens again in a moment."); void opf.restart(); }}>
-              {update.download ? `${update.changes[0]?.subject ?? "A new OPF is out"} · Download` : "Update ready · Restart"}
+              disabled={update.downloading || restarting}
+              onClick={() => { if (!update.download) setRestarting(true); void opf.restart().catch(() => { setRestarting(false); toast("OPF could not restart. Please try again."); }); }}>
+              {update.downloading ? <><span className="opf-spinner" />Downloading update…</> : update.download ? `${update.changes[0]?.subject ?? "A new OPF is out"} · Download` : update.ready ? "Update ready · Restart" : "Update available · Restart"}
             </button>
           )}
+          {update?.runningVersion && <span className="chip hide-md" title={`Installed OPF ${update.installedVersion}; running farm ${update.runningVersion}`}>Farm {update.runningVersion}</span>}
           {opf.isDemo && <span className="chip demo">Demo · simulated printers</span>}
           <span className="chip"><b>{count("printing") + count("preparing")}</b>printing</span>
           <span className="chip hide-md"><b>{count("idle")}</b>idle</span>

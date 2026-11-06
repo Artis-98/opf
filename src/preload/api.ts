@@ -36,6 +36,11 @@ export interface UpdateInfo {
   changes: Change[];
   /** An installed OPF: the page with the new version's installer. restart() opens it. */
   download?: string;
+  ready?: boolean;
+  downloading?: boolean;
+  runningVersion?: string;
+  installedVersion?: string;
+  runtimeId?: string;
 }
 
 export interface OpfApi {

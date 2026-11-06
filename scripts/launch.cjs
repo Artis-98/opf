@@ -30,7 +30,7 @@ const background = args.has("--background");
 
 // In the background nobody sees this window, so it goes to launcher.log too.
 let logFile = null;
-if (background) {
+if (background || args.has("--quiet")) {
   try {
     logFile = path.join(settingsDir(), "launcher.log");
     fs.mkdirSync(path.dirname(logFile), { recursive: true });
@@ -46,12 +46,12 @@ function say(msg) {
 }
 
 function run(cmd, cmdArgs, opts = {}) {
-  const r = spawnSync(cmd, cmdArgs, { cwd: root, stdio: "inherit", shell: win && /\.cmd$/i.test(cmd), ...opts });
+  const r = spawnSync(cmd, cmdArgs, { cwd: root, stdio: "inherit", shell: win && /\.cmd$/i.test(cmd), ...opts, windowsHide: true });
   return r.status === 0;
 }
 
 function capture(cmd, cmdArgs) {
-  const r = spawnSync(cmd, cmdArgs, { cwd: root, encoding: "utf8" });
+  const r = spawnSync(cmd, cmdArgs, { cwd: root, encoding: "utf8", windowsHide: true });
   return r.status === 0 ? r.stdout.trim() : null;
 }
 
@@ -134,9 +134,10 @@ function desktopShortcut() {
   const ps = [
     "$d = [Environment]::GetFolderPath('Desktop')",
     "$p = Join-Path $d 'OPF.lnk'",
-    "if (-not (Test-Path $p)) {",
     "  $s = (New-Object -ComObject WScript.Shell).CreateShortcut($p)",
-    "  $s.TargetPath = Join-Path $env:OPF_ROOT 'OPF.bat'",
+    "if (-not (Test-Path $p) -or $s.TargetPath -eq (Join-Path $env:OPF_ROOT 'OPF.bat')) {",
+    "  $s.TargetPath = Join-Path $env:WINDIR 'System32\\wscript.exe'",
+    "  $s.Arguments = '\"' + (Join-Path $env:OPF_ROOT 'scripts\\launch-hidden.vbs') + '\"'",
     "  $s.WorkingDirectory = $env:OPF_ROOT",
     "  $s.IconLocation = (Join-Path $env:OPF_ROOT 'resources\\icon.ico') + ',0'",
     "  $s.Description = 'OPF, Open Print Farm'",
@@ -145,7 +146,7 @@ function desktopShortcut() {
     "}",
   ].join("; ");
   const r = spawnSync("powershell.exe", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", ps], {
-    cwd: root, encoding: "utf8", env: { ...process.env, OPF_ROOT: root },
+    cwd: root, encoding: "utf8", windowsHide: true, env: { ...process.env, OPF_ROOT: root },
   });
   if (r.stdout && r.stdout.includes("created")) say("Put an OPF icon on your desktop. Open OPF from there next time.");
 }
