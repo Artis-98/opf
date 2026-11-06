@@ -3,7 +3,7 @@ import { emptyFarm, FarmService } from "./farm";
 import { SimulatedPrinter, simulatorFor } from "./simulator";
 import type { DriverFactory, PrinterDriver } from "./driver";
 import { displayStatus } from "./status";
-import type { FarmData, PlateJob, PrinterConfig } from "./types";
+import type { FarmData, LiveState, PlateJob, PrinterConfig } from "./types";
 
 const plate = (name: string, minutes = 1): Omit<PlateJob, "id" | "createdAt"> => ({
   name, ref: null, minutes, grams: 5, filaments: [], file: null, thumbnail: null, source: "estimate",
@@ -110,6 +110,73 @@ describe("FarmService", () => {
     await vi.advanceTimersByTimeAsync(1000);
     await started;
     expect(seen).toEqual([0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]);
+  });
+
+  it("asks after a stop, prints the plate again once the bed is clear", async () => {
+    vi.useFakeTimers();
+    const { farm } = setup();
+    const a = farm.addPrinter({ name: "A", model: "m", driver: "simulator" });
+    farm.enqueue(a, plate("vase", 30));
+    farm.enqueue(a, plate("next", 1));
+    await farm.startNext(a);
+    vi.advanceTimersByTime(3_000);
+    await farm.stop(a);
+    vi.advanceTimersByTime(1_000);
+    let snap = farm.snapshot();
+    expect(snap.data.current[a]).toMatchObject({ name: "vase", stopped: "ask" });
+    expect(displayStatus(snap.live[a], snap.data.current[a])).toBe("stopped");
+    await expect(farm.startNext(a)).rejects.toThrow(/bed is clear/);
+
+    farm.afterStop(a, true);
+    await farm.clearBed(a, true);
+    snap = farm.snapshot();
+    expect(snap.data.current[a]).toMatchObject({ name: "vase" });
+    expect(snap.data.current[a]?.stopped).toBeUndefined();
+    expect(snap.data.queues[a].map((j) => j.name)).toEqual(["next"]);
+    expect(snap.data.history[0]).toMatchObject({ printerId: a, outcome: "stopped" });
+    expect(displayStatus(snap.live[a], snap.data.current[a])).not.toBe("stopped");
+    farm.shutdown();
+  });
+
+  it("after a stop and cancel, the bed is cleared and the next plate starts", async () => {
+    vi.useFakeTimers();
+    const { farm } = setup();
+    const a = farm.addPrinter({ name: "A", model: "m", driver: "simulator" });
+    farm.enqueue(a, plate("vase", 30));
+    farm.enqueue(a, plate("next", 1));
+    await farm.startNext(a);
+    await farm.stop(a);
+    farm.afterStop(a, false);
+    let snap = farm.snapshot();
+    expect(displayStatus(snap.live[a], snap.data.current[a])).toBe("stopped");
+    await farm.clearBed(a, false);
+    vi.advanceTimersByTime(1_000);
+    snap = farm.snapshot();
+    // The printer still calls the print stopped; with the bed clear it is idle and the next plate can start.
+    expect(snap.live[a].status).toBe("idle");
+    expect(snap.data.current[a]).toBeNull();
+    expect(snap.data.queues[a].map((j) => j.name)).toEqual(["next"]);
+    await farm.startNext(a);
+    expect(farm.snapshot().data.current[a]?.name).toBe("next");
+    farm.shutdown();
+  });
+
+  it("notices a print stopped on the printer itself and asks too", async () => {
+    let emitFn!: (patch: Partial<LiveState>) => void;
+    const farm = new FarmService(emptyFarm(), (cfg, emit): PrinterDriver => {
+      emitFn = emit;
+      return simulatorFor(cfg, emit, 60);
+    }, { persist: () => {}, slicer: () => ({ found: false, name: null, path: null }) });
+    farm.start();
+    const a = farm.addPrinter({ name: "A", model: "m", driver: "simulator" });
+    farm.enqueue(a, plate("vase", 30));
+    await farm.startNext(a);
+    emitFn({ status: "printing", progress: 0.4 });
+    emitFn({ status: "stopped" });
+    const snap = farm.snapshot();
+    expect(snap.data.current[a]?.stopped).toBe("ask");
+    expect(farm.snapshot().data.history).toEqual([]);
+    farm.shutdown();
   });
 
   it("swaps two printers when one is dropped on the other's slot", () => {

@@ -50,7 +50,7 @@ export const ACTIONS = [
   "addPrinter", "updatePrinter", "removePrinter",
   "addShelf", "renameShelf", "removeShelf", "addSlot", "removeSlot", "placePrinter",
   "enqueue", "reorder", "dequeue", "transfer", "updateJob", "replaceQueued", "duplicateQueued",
-  "startNext", "pause", "resume", "stop", "clearBed",
+  "startNext", "pause", "resume", "stop", "afterStop", "clearBed",
   "addInbox", "removeInbox", "updateSettings", "replaceData", "addTestPrinters",
 ] as const;
 export type ActionName = (typeof ACTIONS)[number];
@@ -110,11 +110,21 @@ export class FarmService {
     // The bed was cleared after this print, but the printer still calls it finished: it is idle.
     const cleared = this.data.bedCleared?.[id];
     if (cleared !== undefined) {
-      if (next.status === "finished" && (next.jobName ?? "") === cleared) {
-        Object.assign(next, { status: "idle", progress: 0, remainingSec: null });
-      } else if (next.status === "printing" || next.status === "preparing" || next.status === "finished") {
-        // A new print: the next time it finishes, the bed needs clearing again.
+      // A stopped Bambu print stays "failed" until the next one starts, as a finished one stays finished.
+      if ((next.status === "finished" || next.status === "stopped" || next.status === "error") && (next.jobName ?? "") === cleared) {
+        Object.assign(next, { status: "idle", progress: 0, remainingSec: null, error: null });
+      } else if (next.status === "printing" || next.status === "preparing" || next.status === "finished" || next.status === "stopped") {
+        // A new print: the next time it ends, the bed needs clearing again.
         delete this.data.bedCleared![id];
+        persist = true;
+      }
+    }
+    // The plate was stopped at the printer (or the printer dropped it): ask whether it prints again.
+    const job = this.data.current[id];
+    if (job && !job.stopped) {
+      const wasRunning = ["printing", "preparing", "paused", "error"].includes(prev.status);
+      if (next.status === "stopped" || (wasRunning && next.status === "idle" && (prev.progress ?? 0) < 0.99)) {
+        this.data.current[id] = { ...job, stopped: "ask" };
         persist = true;
       }
     }
@@ -412,12 +422,19 @@ export class FarmService {
     await this.drivers.get(printerId)?.resume();
   }
 
+  /** Stops the print. The plate stays on the printer, asking whether it prints again. */
   async stop(printerId: string) {
     await this.drivers.get(printerId)?.stop();
     const job = this.data.current[printerId];
-    if (job) this.data.history.unshift({ printerId, job, endedAt: Date.now(), outcome: "stopped" });
-    this.data.current[printerId] = null;
-    this.trimHistory();
+    if (job && !job.stopped) this.data.current[printerId] = { ...job, stopped: "ask" };
+    this.changed(true);
+  }
+
+  /** After a stop: print the plate again once the bed is clear, or cancel it. */
+  afterStop(printerId: string, again: boolean) {
+    const job = this.data.current[printerId];
+    if (!job?.stopped) throw new Error("Nothing was stopped on this printer.");
+    this.data.current[printerId] = { ...job, stopped: again ? "again" : "cancel" };
     this.changed(true);
   }
 
@@ -426,14 +443,17 @@ export class FarmService {
     const job = this.data.current[printerId];
     const live = this.live[printerId];
     if (job) {
-      const failed = live?.status === "error";
-      this.data.history.unshift({ printerId, job, endedAt: Date.now(), outcome: failed ? "failed" : "done" });
+      const { stopped, ...plate } = job;
+      const outcome = stopped ? "stopped" : live?.status === "error" ? "failed" : "done";
+      this.data.history.unshift({ printerId, job: plate, endedAt: Date.now(), outcome });
+      // Printed again: first in the queue, so "start next" starts it.
+      if (stopped === "again") (this.data.queues[printerId] ??= []).unshift(plate);
     }
     this.data.current[printerId] = null;
-    if (live && live.status === "finished") {
-      // Until the printer starts its next print, it keeps calling this one finished.
+    if (live && (live.status === "finished" || live.status === "stopped" || (job?.stopped && live.status === "error"))) {
+      // Until the printer starts its next print, it keeps calling this one finished (or stopped).
       (this.data.bedCleared ??= {})[printerId] = live.jobName ?? "";
-      this.live[printerId] = { ...live, status: "idle", progress: 0, remainingSec: null };
+      this.live[printerId] = { ...live, status: "idle", progress: 0, remainingSec: null, error: null };
     }
     this.trimHistory();
     this.changed(true);
